@@ -82,55 +82,7 @@ export const isValidPreviewUrl = (value: string): boolean => {
   }
 };
 
-const hasStoryIdentifierAudit: Audit = {
-  name: "has-story-identifier",
-  async run(payload) {
-    const storyId = payload.story_id ?? payload.story?.id;
-    const hasId = storyId !== undefined;
-    const hasLength = String(storyId).length > 0;
-    const passed = hasId && hasLength;
-
-    const message = passed
-      ? "Story identifier found in webhook payload."
-      : "Missing story identifier (expected story_id or story.id).";
-
-    return {
-      audit: "has-story-identifier",
-      message,
-      meta: {
-        storyId: storyId ?? undefined,
-      },
-      passed,
-    };
-  },
-};
-
-const MIN_AVAILABLE_FIELDS = 1;
-
-const hasStoryMetadataAudit: Audit = {
-  name: "has-story-metadata",
-  async run(payload) {
-    const story = payload.story ?? {};
-    const available = [story.name, story.slug, story.full_slug, story.uuid].filter(Boolean).length;
-
-    const passed = available >= MIN_AVAILABLE_FIELDS;
-
-    const message = passed
-      ? "Story metadata is present for downstream audits."
-      : "No story metadata found (name/slug/full_slug/uuid).";
-
-    return {
-      audit: "has-story-metadata",
-      message,
-      meta: {
-        availableFields: available,
-      },
-      passed,
-    };
-  },
-};
-
-export const reviewingAudits: Audit[] = [hasStoryIdentifierAudit, hasStoryMetadataAudit];
+export const reviewingAudits: Audit[] = [];
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {

@@ -1,0 +1,4 @@
+{
+  "*.{ts,tsx,js,jsx}": ["oxlint --fix --type-aware", "oxfmt --write"],
+  "*.json": ["oxfmt --write"]
+}
