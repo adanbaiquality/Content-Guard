@@ -30,9 +30,9 @@ const executeStoryblokReviewingAudits = async (
   const payload = await runFetchStoryStep(input);
   const enrichedPayload = await runResolvePreviewUrlStep(payload);
   const baseAudits = await runReviewingAudits(enrichedPayload);
-  
+
   // Tag base audits with their step name
-  baseAudits.forEach(audit => {
+  baseAudits.forEach((audit) => {
     audit.step = "audits";
   });
 
@@ -68,7 +68,7 @@ const executeStoryblokReviewingAudits = async (
 
   // Group audits by step for detailed summary
   const stepMap = new Map<string, AuditResult[]>();
-  audits.forEach(audit => {
+  audits.forEach((audit) => {
     const stepName = audit.step || "unknown";
     if (!stepMap.has(stepName)) {
       stepMap.set(stepName, []);
@@ -79,8 +79,8 @@ const executeStoryblokReviewingAudits = async (
   const steps = Array.from(stepMap.entries()).map(([stepName, stepAudits]) => ({
     name: stepName,
     total: stepAudits.length,
-    passed: stepAudits.filter(a => a.passed).length,
-    failed: stepAudits.filter(a => !a.passed).length,
+    passed: stepAudits.filter((a) => a.passed).length,
+    failed: stepAudits.filter((a) => !a.passed).length,
     audits: stepAudits,
   }));
 

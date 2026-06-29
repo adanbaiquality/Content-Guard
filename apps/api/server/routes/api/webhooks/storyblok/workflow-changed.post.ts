@@ -11,16 +11,16 @@ import {
 const HTTP_STATUS_BAD_REQUEST = 400;
 const LOCAL_WORKFLOW_RUN_ID_PREFIX = "local-run";
 
-const WebhookBodySchema = z.object({
-  id: z.union([
-    z.number().finite(),
-    z.string().trim().min(1),
-  ]).transform((val) => (typeof val === "string" ? val.trim() : val)),
-  spaceid: z.union([
-    z.number().finite(),
-    z.string().trim().min(1),
-  ]).transform((val) => (typeof val === "string" ? val.trim() : val)),
-}).strict();
+const WebhookBodySchema = z
+  .object({
+    id: z
+      .union([z.number().finite(), z.string().trim().min(1)])
+      .transform((val) => (typeof val === "string" ? val.trim() : val)),
+    spaceid: z
+      .union([z.number().finite(), z.string().trim().min(1)])
+      .transform((val) => (typeof val === "string" ? val.trim() : val)),
+  })
+  .strict();
 
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
@@ -102,7 +102,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const run = await start(runStoryblokReviewingAudits, [{ spaceId, storyId }]);
-  const runId = (run as { id?: string; runId?: string }).id ?? (run as { id?: string; runId?: string }).runId;
+  const runId =
+    (run as { id?: string; runId?: string }).id ?? (run as { id?: string; runId?: string }).runId;
 
   logger.debug({ runId, storyId }, "Workflow started successfully");
 

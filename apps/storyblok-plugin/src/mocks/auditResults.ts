@@ -8,11 +8,7 @@ const WCAG22_QUICKREF_ITEMS: Array<[id: string, title: string, anchor: string]> 
   ["1.1.1", "Non-text Content", "text-equiv-all"],
   ["1.2.1", "Audio-only and Video-only (Prerecorded)", "media-equiv-av-only-alt"],
   ["1.2.2", "Captions (Prerecorded)", "media-equiv-captions"],
-  [
-    "1.2.3",
-    "Audio Description or Media Alternative (Prerecorded)",
-    "media-equiv-audio-desc",
-  ],
+  ["1.2.3", "Audio Description or Media Alternative (Prerecorded)", "media-equiv-audio-desc"],
   ["1.2.4", "Captions (Live)", "media-equiv-real-time-captions"],
   ["1.2.5", "Audio Description (Prerecorded)", "media-equiv-audio-desc-only"],
   ["1.2.6", "Sign Language (Prerecorded)", "media-equiv-sign"],
@@ -73,34 +69,18 @@ const WCAG22_QUICKREF_ITEMS: Array<[id: string, title: string, anchor: string]> 
   ["3.2.1", "On Focus", "consistent-behavior-receive-focus"],
   ["3.2.2", "On Input", "consistent-behavior-unpredictable-change"],
   ["3.2.3", "Consistent Navigation", "consistent-behavior-consistent-locations"],
-  [
-    "3.2.4",
-    "Consistent Identification",
-    "consistent-behavior-consistent-functionality",
-  ],
+  ["3.2.4", "Consistent Identification", "consistent-behavior-consistent-functionality"],
   ["3.2.5", "Change on Request", "consistent-behavior-no-extreme-changes-context"],
   ["3.2.6", "Consistent Help", "consistent-help"],
   ["3.3.1", "Error Identification", "minimize-error-identified"],
   ["3.3.2", "Labels or Instructions", "minimize-error-cues"],
   ["3.3.3", "Error Suggestion", "minimize-error-suggestions"],
-  [
-    "3.3.4",
-    "Error Prevention (Legal, Financial, Data)",
-    "minimize-error-reversible",
-  ],
+  ["3.3.4", "Error Prevention (Legal, Financial, Data)", "minimize-error-reversible"],
   ["3.3.5", "Help", "minimize-error-context-help"],
   ["3.3.6", "Error Prevention (All)", "minimize-error-reversible-all"],
   ["3.3.7", "Redundant Entry", "redundant-entry"],
-  [
-    "3.3.8",
-    "Accessible Authentication (Minimum)",
-    "accessible-authentication-minimum",
-  ],
-  [
-    "3.3.9",
-    "Accessible Authentication (Enhanced)",
-    "accessible-authentication-enhanced",
-  ],
+  ["3.3.8", "Accessible Authentication (Minimum)", "accessible-authentication-minimum"],
+  ["3.3.9", "Accessible Authentication (Enhanced)", "accessible-authentication-enhanced"],
   ["4.1.1", "Parsing", "ensure-compat-parses"],
   ["4.1.2", "Name, Role, Value", "ensure-compat-rsv"],
   ["4.1.3", "Status Messages", "status-messages"],
@@ -128,8 +108,7 @@ const wcag22CompletedAudits: AuditResult[] = WCAG22_QUICKREF_ITEMS.filter(
 }));
 
 export const mockCategorySettingsLinks = {
-  brand:
-    "https://app.storyblok.com/#/me/spaces/293515764469721/apps/192670910305875",
+  brand: "https://app.storyblok.com/#/me/spaces/293515764469721/apps/192670910305875",
 } as const;
 
 export const mockAuditResults: AuditResult[] = [

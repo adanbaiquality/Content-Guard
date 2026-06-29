@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+
 import CategorySection from "@/components/AccessibilitySection";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -102,7 +103,9 @@ function CategoryTabTrigger({
     >
       <Image src={CATEGORY_ICONS[category]} alt="" width={14} height={14} className="opacity-75" />
       <span className="font-bold">{CATEGORY_LABELS[category]}</span>
-      <span className="text-zinc-500">{issueCount} issue{issueCount === 1 ? "" : "s"}</span>
+      <span className="text-zinc-500">
+        {issueCount} issue{issueCount === 1 ? "" : "s"}
+      </span>
       <span className={`h-2 w-2 rounded-full ${dotStyles[status]}`} />
     </TabsTrigger>
   );
@@ -155,7 +158,7 @@ export default function ContentGuardPanel() {
         <div className="rounded-lg border border-emerald-200 bg-white p-1.5">
           <Image src="/guard-icon.svg" alt="Content Guard" width={28} height={28} />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg font-extrabold tracking-tight text-zinc-900">Content Guard</h1>
         </div>
         <ProgressSummary audits={activeAudits} />

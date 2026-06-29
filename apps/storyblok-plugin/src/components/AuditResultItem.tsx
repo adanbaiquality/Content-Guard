@@ -1,7 +1,8 @@
 import { Check, CheckCircle2, Copy, OctagonAlert, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
-import { type AuditResult } from "@/types";
+
 import { Badge } from "@/components/ui/Badge";
+import { type AuditResult } from "@/types";
 
 const STORYBLOK_MCP_URL = "https://www.storyblok.com/mp/storyblok-mcp-server";
 const WCAG22_QUICKREF_URL = "https://www.w3.org/WAI/WCAG22/quickref/";
@@ -123,18 +124,20 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
       </div>
 
       {/* Body */}
-      <div className="px-4 py-3 space-y-3">
+      <div className="space-y-3 px-4 py-3">
         <p className="text-sm text-zinc-700">{result.message}</p>
 
         {/* NOW / SUGGESTION comparison */}
         {result.current && result.suggestion && (
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg border border-red-200 bg-red-50 p-2.5">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-red-600">Now</p>
+              <p className="mb-1 text-[10px] font-bold tracking-wider text-red-600 uppercase">
+                Now
+              </p>
               <p className="text-xs text-red-800">{result.current}</p>
             </div>
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+              <p className="mb-1 text-[10px] font-bold tracking-wider text-emerald-600 uppercase">
                 Suggestion
               </p>
               <p className="text-xs text-emerald-800">{result.suggestion}</p>
@@ -145,8 +148,7 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
         {/* Context textarea */}
         <div>
           <label className="mb-1 block text-[11px] font-medium text-zinc-500">
-            Add context for the AI fix{" "}
-            <span className="font-normal text-zinc-400">(optional)</span>
+            Add context for the AI fix <span className="font-normal text-zinc-400">(optional)</span>
           </label>
           <textarea
             value={context}
@@ -164,7 +166,11 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
             onClick={copyPrompt}
             className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 active:scale-95"
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
             {copied ? "Copied!" : "Copy fix-prompt"}
           </button>
           <button

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+
 import { handleConnect } from "@/auth";
 
 export const config = {
@@ -7,10 +8,7 @@ export const config = {
   },
 };
 
-export default async function connectHandler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
+export default async function connectHandler(req: NextApiRequest, res: NextApiResponse) {
   const requestUrl = req.url || "";
 
   try {

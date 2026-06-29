@@ -1,5 +1,5 @@
-import { type AuditCategory, type AuditResult } from "@/types";
 import AuditResultItem from "@/components/AuditResultItem";
+import { type AuditCategory, type AuditResult } from "@/types";
 
 const CATEGORY_META: Record<AuditCategory, { passedText: string }> = {
   a11y: {

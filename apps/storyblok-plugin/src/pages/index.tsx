@@ -1,4 +1,5 @@
 import Head from "next/head";
+
 import ContentGuardPanel from "@/components/ContentGuardPanel";
 import { useAppBridge, useAutoHeight } from "@/hooks";
 

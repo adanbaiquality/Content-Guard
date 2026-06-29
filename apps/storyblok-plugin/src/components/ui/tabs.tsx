@@ -1,7 +1,8 @@
 "use client";
 
-import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
+import * as React from "react";
+
 import { cn } from "@/lib/utils";
 
 function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
@@ -34,10 +35,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
 
 function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) {
   return (
-    <TabsPrimitive.Content
-      className={cn("mt-2 ring-offset-background", className)}
-      {...props}
-    />
+    <TabsPrimitive.Content className={cn("mt-2 ring-offset-background", className)} {...props} />
   );
 }
 

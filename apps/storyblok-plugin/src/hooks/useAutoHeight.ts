@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+
 import { KEY_SLUG } from "@/utils/const";
 
 const MIN_TOOL_HEIGHT = 320;
