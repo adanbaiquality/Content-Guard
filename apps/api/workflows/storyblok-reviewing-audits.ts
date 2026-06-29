@@ -6,6 +6,7 @@ import {
 import { runFetchStoryAudit } from "./fetch-story.step.ts";
 import { runPreviewA11yAxeAudit } from "./preview-a11y-axe.step.ts";
 import { runPreviewAFMAudit } from "./preview-afm.step.ts";
+import { runResolvePreviewUrlStep } from "./resolve-preview-url.step.ts";
 
 export interface StoryblokReviewingAuditWorkflowResult {
   status: "completed";
@@ -17,15 +18,16 @@ export interface StoryblokReviewingAuditWorkflowResult {
   };
 }
 
-export async function runStoryblokReviewingAudits(
+export const runStoryblokReviewingAudits = async (
   payload: StoryblokWorkflowWebhookPayload,
-): Promise<StoryblokReviewingAuditWorkflowResult> {
+): Promise<StoryblokReviewingAuditWorkflowResult> => {
   "use workflow";
 
-  const baseAudits = await runReviewingAudits(payload);
-  const fetchStoryAudit = await runFetchStoryAudit(payload);
-  const previewA11yAudit = await runPreviewA11yAxeAudit(payload);
-  const previewAFMAudit = await runPreviewAFMAudit(payload);
+  const enrichedPayload = await runResolvePreviewUrlStep(payload);
+  const baseAudits = await runReviewingAudits(enrichedPayload);
+  const fetchStoryAudit = await runFetchStoryAudit(enrichedPayload);
+  const previewA11yAudit = await runPreviewA11yAxeAudit(enrichedPayload);
+  const previewAFMAudit = await runPreviewAFMAudit(enrichedPayload);
   const audits = [...baseAudits, fetchStoryAudit, previewA11yAudit, previewAFMAudit];
   const passed = audits.filter((audit) => audit.passed).length;
 
@@ -38,4 +40,4 @@ export async function runStoryblokReviewingAudits(
       total: audits.length,
     },
   };
-}
+};

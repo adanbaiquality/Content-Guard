@@ -11,9 +11,9 @@
     "build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
     "build:api": "pnpm --filter @content-guard/api build",
     "tunnel": "devtunnel host",
-    "lint": "oxlint",
-    "lint:check": "oxlint --deny-warnings",
-    "lint:fix": "oxlint --fix",
+    "lint": "oxlint --type-aware",
+    "lint:check": "oxlint --deny-warnings --type-aware",
+    "lint:fix": "oxlint --fix --type-aware",
     "typecheck": "pnpm --filter @content-guard/storyblok-plugin typecheck && pnpm --filter @content-guard/api typecheck",
     "format": "oxfmt",
     "format:check": "oxfmt --check"
@@ -21,7 +21,8 @@
   "devDependencies": {
     "concurrently": "^10.0.3",
     "oxfmt": "^0.56.0",
-    "oxlint": "^1.71.0"
+    "oxlint": "^1.71.0",
+    "oxlint-tsgolint": "^0.23.0"
   },
   "engines": {
     "node": "24",

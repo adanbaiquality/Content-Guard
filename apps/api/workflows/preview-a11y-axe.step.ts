@@ -7,13 +7,7 @@ import {
   resolvePreviewUrl,
 } from "../server/audits/index.ts";
 
-export async function runPreviewA11yAxeAudit(
-  payload: StoryblokWorkflowWebhookPayload,
-): Promise<AuditResult> {
-  "use step";
-
-  const previewUrl = resolvePreviewUrl(payload);
-
+const validatePreviewUrl = (previewUrl: string | undefined): AuditResult | null => {
   if (!previewUrl) {
     return {
       audit: "preview-a11y-axe",
@@ -43,6 +37,29 @@ export async function runPreviewA11yAxeAudit(
     };
   }
 
+  return null;
+};
+
+const processViolations = (violations: any[]): Record<string, any> => ({
+  inapplicableCount: 0,
+  incompleteCount: 0,
+  passesCount: 0,
+  violations,
+  violationsCount: violations.length,
+});
+
+export const runPreviewA11yAxeAudit = async (
+  payload: StoryblokWorkflowWebhookPayload,
+): Promise<AuditResult> => {
+  "use step";
+
+  const previewUrl = resolvePreviewUrl(payload);
+  const validationError = validatePreviewUrl(previewUrl);
+
+  if (validationError) {
+    return validationError;
+  }
+
   const browser = await chromium.launch({ headless: true });
 
   try {
@@ -54,7 +71,9 @@ export async function runPreviewA11yAxeAudit(
       waitUntil: "networkidle",
     });
 
-    const axeResults = await new AxeBuilder({ page }).analyze();
+    const axeResults = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
 
     const violations = axeResults.violations.map((violation: any) => ({
       description: violation.description,
@@ -98,4 +117,4 @@ export async function runPreviewA11yAxeAudit(
   } finally {
     await browser.close();
   }
-}
+};

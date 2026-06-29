@@ -44,49 +44,62 @@ export interface Audit {
   run: (payload: StoryblokWorkflowWebhookPayload) => Promise<AuditResult>;
 }
 
-function asNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
+const MIN_STRING_LENGTH = 1;
 
-export function resolvePreviewUrl(payload: StoryblokWorkflowWebhookPayload): string | null {
-  return (
-    asNonEmptyString(payload.preview_url) ??
-    asNonEmptyString(payload.previewUrl) ??
-    asNonEmptyString(payload.preview?.url) ??
-    asNonEmptyString(payload.urls?.preview) ??
-    asNonEmptyString(payload.story?.preview_url) ??
-    asNonEmptyString(payload.story?.previewUrl) ??
-    null
-  );
-}
+const asNonEmptyString = (value: unknown): string | undefined => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
 
-export function isValidPreviewUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length >= MIN_STRING_LENGTH) {
+    return trimmed;
+  }
+
+  return undefined;
+};
+
+export const resolvePreviewUrl = (payload: StoryblokWorkflowWebhookPayload): string | undefined =>
+  asNonEmptyString(payload.preview_url) ??
+  asNonEmptyString(payload.previewUrl) ??
+  asNonEmptyString(payload.preview?.url) ??
+  asNonEmptyString(payload.urls?.preview) ??
+  asNonEmptyString(payload.story?.preview_url) ??
+  asNonEmptyString(payload.story?.previewUrl);
+
+export const isValidPreviewUrl = (value: string): boolean => {
   try {
     const parsed = new URL(value);
     return parsed.protocol === "http:" || parsed.protocol === "https:";
   } catch {
     return false;
   }
-}
+};
 
 const hasStoryIdentifierAudit: Audit = {
   name: "has-story-identifier",
   async run(payload) {
     const storyId = payload.story_id ?? payload.story?.id;
-    const passed = storyId !== undefined && storyId !== null && String(storyId).length > 0;
+    const hasId = storyId !== undefined;
+    const hasLength = String(storyId).length > 0;
+    const passed = hasId && hasLength;
+
+    const message = passed
+      ? "Story identifier found in webhook payload."
+      : "Missing story identifier (expected story_id or story.id).";
 
     return {
       audit: "has-story-identifier",
-      message: passed
-        ? "Story identifier found in webhook payload."
-        : "Missing story identifier (expected story_id or story.id).",
+      message,
       meta: {
-        storyId: storyId ?? null,
+        storyId: storyId ?? undefined,
       },
       passed,
     };
   },
 };
+
+const MIN_AVAILABLE_FIELDS = 1;
 
 const hasStoryMetadataAudit: Audit = {
   name: "has-story-metadata",
@@ -94,13 +107,15 @@ const hasStoryMetadataAudit: Audit = {
     const story = payload.story ?? {};
     const available = [story.name, story.slug, story.full_slug, story.uuid].filter(Boolean).length;
 
-    const passed = available > 0;
+    const passed = available >= MIN_AVAILABLE_FIELDS;
+
+    const message = passed
+      ? "Story metadata is present for downstream audits."
+      : "No story metadata found (name/slug/full_slug/uuid).";
 
     return {
       audit: "has-story-metadata",
-      message: passed
-        ? "Story metadata is present for downstream audits."
-        : "No story metadata found (name/slug/full_slug/uuid).",
+      message,
       meta: {
         availableFields: available,
       },
@@ -111,9 +126,17 @@ const hasStoryMetadataAudit: Audit = {
 
 export const reviewingAudits: Audit[] = [hasStoryIdentifierAudit, hasStoryMetadataAudit];
 
-export async function runReviewingAudits(
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+};
+
+export const runReviewingAudits = async (
   payload: StoryblokWorkflowWebhookPayload,
-): Promise<AuditResult[]> {
+): Promise<AuditResult[]> => {
   const results = await Promise.all(
     reviewingAudits.map(async (audit) => {
       try {
@@ -123,7 +146,7 @@ export async function runReviewingAudits(
           audit: audit.name,
           message: "Audit execution failed.",
           meta: {
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
           },
           passed: false,
         } satisfies AuditResult;
@@ -132,4 +155,4 @@ export async function runReviewingAudits(
   );
 
   return results;
-}
+};

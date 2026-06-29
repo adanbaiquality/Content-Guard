@@ -1,51 +1,58 @@
+import type { AuditResult, StoryblokWorkflowWebhookPayload } from "../server/audits/index.ts";
 import StoryblokClient from "storyblok-js-client";
-import type {
-  AuditResult,
-  StoryblokWorkflowWebhookPayload,
-} from "../server/audits/index.ts";
 
-function resolveStoryId(payload: StoryblokWorkflowWebhookPayload): number | string | null {
-  const id = payload.story_id ?? payload.story?.id ?? null;
-  return id ?? null;
-}
+const resolveStoryId = (payload: StoryblokWorkflowWebhookPayload): number | string | undefined => {
+  const id = payload.story_id ?? payload.story?.id;
+  return id;
+};
 
-function resolveExpectedStoryVersion(
+const resolveExpectedStoryVersion = (
   payload: StoryblokWorkflowWebhookPayload,
-): number | string | null {
-  const version = payload.story_version ?? payload.story?.version ?? payload.version ?? null;
-  return version ?? null;
-}
+): number | string | undefined => {
+  const version = payload.story_version ?? payload.story?.version ?? payload.version;
+  return version;
+};
 
-function normalizeVersion(value: number | string | null | undefined): string | null {
-  if (value === null || value === undefined) {
-    return null;
+const MIN_NORMALIZED_STRING_LENGTH = 1;
+
+const normalizeVersion = (value: number | string | undefined): string | undefined => {
+  if (value === undefined) {
+    return undefined;
   }
 
   const normalized = String(value).trim();
-  return normalized.length > 0 ? normalized : null;
-}
+  if (normalized.length >= MIN_NORMALIZED_STRING_LENGTH) {
+    return normalized;
+  }
 
-function extractFetchedStoryVersion(story: unknown): string | null {
+  return undefined;
+};
+
+const extractFetchedStoryVersion = (story: unknown): string | undefined => {
   if (!story || typeof story !== "object" || !("version" in story)) {
-    return null;
+    return undefined;
   }
 
   const rawVersion = (story as { version?: number | string }).version;
   return normalizeVersion(rawVersion);
-}
+};
 
-function toNumericCv(value: number | string | null): number | undefined {
-  if (value === null) {
+const toNumericCv = (value: number | string | undefined): number | undefined => {
+  if (value === undefined) {
     return undefined;
   }
 
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : undefined;
-}
+  if (Number.isFinite(numeric)) {
+    return numeric;
+  }
 
-export async function runFetchStoryAudit(
+  return undefined;
+};
+
+export const runFetchStoryAudit = async (
   payload: StoryblokWorkflowWebhookPayload,
-): Promise<AuditResult> {
+): Promise<AuditResult> => {
   "use step";
 
   const storyId = resolveStoryId(payload);
@@ -80,8 +87,8 @@ export async function runFetchStoryAudit(
     const expectedVersionNormalized = normalizeVersion(expectedVersion);
 
     if (
-      expectedVersionNormalized !== null &&
-      fetchedVersion !== null &&
+      expectedVersionNormalized !== undefined &&
+      fetchedVersion !== undefined &&
       expectedVersionNormalized !== fetchedVersion
     ) {
       return {
@@ -104,7 +111,7 @@ export async function runFetchStoryAudit(
         message: "Story retrieved but version could not be verified.",
         meta: {
           expectedVersion: expectedVersionNormalized,
-          fetchedVersion: null,
+          fetchedVersion: undefined,
           name: data.story?.name,
           slug: data.story?.full_slug,
           storyId,
@@ -117,7 +124,7 @@ export async function runFetchStoryAudit(
       audit: "fetch-story",
       message: "Story retrieved successfully from Storyblok.",
       meta: {
-        expectedVersion: expectedVersion ?? null,
+        expectedVersion: expectedVersion ?? undefined,
         fetchedVersion,
         name: data.story?.name,
         slug: data.story?.full_slug,
@@ -126,14 +133,15 @@ export async function runFetchStoryAudit(
       passed: true,
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       audit: "fetch-story",
       message: "Failed to retrieve story from Storyblok.",
       meta: {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         storyId,
       },
       passed: false,
     };
   }
-}
+};
