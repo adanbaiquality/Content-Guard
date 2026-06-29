@@ -25,6 +25,39 @@ const CATEGORY_ICONS: Record<AuditCategory, string> = {
   brand: "/brand-icon.svg",
 };
 
+const AFM_KREDIETWAARSCHUWING_DOC_URL =
+  "https://www.afm.nl/nl-nl/sector/themas/dienstverlening-aan-consumenten/informatieverstrekking/kredietwaarschuwing";
+
+function getAfmRuleInfo(type: unknown): { ruleId: string; ruleUrl: string } {
+  const violationType = typeof type === "string" ? type : "";
+
+  const afmRuleMap: Record<string, { ruleId: string; ruleUrl: string }> = {
+    "kredietwaarschuwing-position-size": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+    "kredietwaarschuwing-source": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+    "kredietwaarschuwing-visibility": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+    "missing-kredietwaarschuwing": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+  };
+
+  return (
+    afmRuleMap[violationType] || {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    }
+  );
+}
+
 type WorkflowRunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
 type WorkflowAudit = {
@@ -190,6 +223,8 @@ function mapAfmAudit(step: WorkflowStepSummary): AuditResult[] {
       type: violation.type,
     },
     passed: false,
+    ruleId: getAfmRuleInfo(violation.type).ruleId,
+    ruleUrl: getAfmRuleInfo(violation.type).ruleUrl,
     severity:
       violation.severity === "error"
         ? "serious"
@@ -582,18 +617,42 @@ function toExportRow(category: AuditCategory, result: AuditResult) {
   };
 }
 
+const EXPORT_SEVERITY_RANK: Record<AuditResult["severity"], number> = {
+  critical: 4,
+  serious: 3,
+  moderate: 2,
+  minor: 1,
+};
+
+function sortAuditsForExport(audits: AuditResult[]): AuditResult[] {
+  return [...audits].sort((a, b) => {
+    const severityDelta = EXPORT_SEVERITY_RANK[b.severity] - EXPORT_SEVERITY_RANK[a.severity];
+    if (severityDelta !== 0) {
+      return severityDelta;
+    }
+
+    if (a.passed !== b.passed) {
+      return a.passed ? 1 : -1;
+    }
+
+    return a.audit.localeCompare(b.audit);
+  });
+}
+
 function downloadResultsAsXlsx(byCategory: Record<AuditCategory, AuditResult[]>) {
   const workbook = XLSX.utils.book_new();
 
   const allRows = CATEGORIES.flatMap((category) =>
-    byCategory[category].map((result) => toExportRow(category, result)),
+    sortAuditsForExport(byCategory[category]).map((result) => toExportRow(category, result)),
   );
 
   const allResultsSheet = XLSX.utils.json_to_sheet(allRows);
   XLSX.utils.book_append_sheet(workbook, allResultsSheet, "All Results");
 
   CATEGORIES.forEach((category) => {
-    const rows = byCategory[category].map((result) => toExportRow(category, result));
+    const rows = sortAuditsForExport(byCategory[category]).map((result) =>
+      toExportRow(category, result),
+    );
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(workbook, worksheet, CATEGORY_LABELS[category]);
@@ -635,14 +694,14 @@ function CategoryTabTrigger({
     <TabsTrigger
       value={category}
       className={cn(
-        "grid h-auto w-full grid-cols-[14px_minmax(0,1fr)_88px_8px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
+        "grid h-auto w-full grid-cols-[14px_minmax(0,1fr)_96px_8px] items-center gap-2 rounded-full border px-3 py-1.5 text-[0.9rem] font-semibold transition data-[state=active]:shadow-sm",
         "bg-white/50 hover:bg-white data-[state=active]:text-current",
         styles[status],
       )}
     >
       <Image src={CATEGORY_ICONS[category]} alt="" width={14} height={14} className="opacity-75" />
-      <span className="min-w-0 truncate text-left font-bold">{CATEGORY_LABELS[category]}</span>
-      <span className="text-right tabular-nums text-zinc-500">
+      <span className="min-w-0 truncate text-left text-[1rem] font-bold">{CATEGORY_LABELS[category]}</span>
+      <span className="text-right tabular-nums text-[1.05rem] font-bold text-zinc-700">
         {issueCount} issue{issueCount === 1 ? "" : "s"}
       </span>
       <span className={`h-2 w-2 rounded-full ${dotStyles[status]}`} />
@@ -651,30 +710,28 @@ function CategoryTabTrigger({
 }
 
 function ProgressSummary({ audits }: { audits: AuditResult[] }) {
-  const total = audits.length;
-  const remaining = audits.filter((a) => !a.passed).length;
-  const done = total - remaining;
-  const percent = total === 0 ? 100 : Math.round((done / total) * 100);
+  const issueCount = audits.filter((a) => !a.passed).length;
+  const isAllGood = issueCount === 0;
+  const status = getCategoryStatus(audits);
+
+  const severityStyles = {
+    pass: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    critical: "border-red-200 bg-red-100 text-red-900",
+    serious: "border-red-200 bg-red-100 text-red-900",
+    moderate: "border-orange-200 bg-orange-100 text-orange-900",
+    minor: "border-amber-200 bg-amber-100 text-amber-900",
+  };
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-3 py-2">
-      <div
-        className="relative grid h-12 w-12 place-items-center rounded-full"
-        style={{
-          background: `conic-gradient(#10b981 ${percent * 3.6}deg, #e5e7eb ${percent * 3.6}deg)`,
-        }}
-      >
-        <div className="grid h-9 w-9 place-items-center rounded-full bg-white text-[10px] font-bold text-zinc-700">
-          {percent}%
-        </div>
-      </div>
-      {remaining > 0 && (
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">
-            {remaining} issue{remaining === 1 ? "" : "s"}
-          </p>
-        </div>
+    <div
+      className={cn(
+        "flex min-h-12 items-center rounded-xl border px-4 py-2",
+        severityStyles[status],
       )}
+    >
+      <p className="text-[1.2rem] leading-none font-extrabold">
+        {isAllGood ? "everything ok" : `${issueCount} issue${issueCount === 1 ? "" : "s"}`}
+      </p>
     </div>
   );
 }
@@ -806,7 +863,7 @@ export default function ContentGuardPanel() {
       {loading ? (
         <HeaderLoadingSkeleton />
       ) : (
-        <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-[linear-gradient(130deg,#ebf8ef_0%,#faf8ec_100%)] px-4 py-3.5">
+        <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-4 py-3.5">
           <div>
             <Image src="/guard-icon.svg" alt="Content Guard" width={28} height={28} />
           </div>
@@ -821,7 +878,7 @@ export default function ContentGuardPanel() {
                 <button
                   type="button"
                   onClick={() => setIsRunTooltipPinned((current) => !current)}
-                  className="text-[11px] font-medium text-zinc-500 underline decoration-dotted underline-offset-2 hover:text-zinc-700"
+                  className="text-[10px] font-normal text-zinc-500 transition-colors hover:text-zinc-600"
                 >
                   Last run: {formattedLastRunAt}
                 </button>
@@ -834,7 +891,7 @@ export default function ContentGuardPanel() {
               </div>
             )}
           </div>
-          <ProgressSummary audits={activeAudits} />
+          <ProgressSummary audits={audits} />
         </header>
       )}
 
@@ -864,13 +921,13 @@ export default function ContentGuardPanel() {
                 ))}
               </TabsList>
 
-              <div className="flex w-full justify-center">
+              <div className="w-full">
                 <button
                   type="button"
                   onClick={() => downloadResultsAsXlsx(byCategory)}
-                  className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+                  className="inline-flex w-full items-center justify-center rounded-2xl border border-zinc-300 bg-white px-5 py-2.5 text-lg font-semibold text-slate-800 shadow-sm transition hover:bg-zinc-50 active:scale-[0.99] active:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
                 >
-                  Download XLSX
+                  Download Report
                 </button>
               </div>
             </div>
