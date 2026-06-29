@@ -5,6 +5,7 @@
 [build.environment]
   NODE_VERSION = "22"
   PNPM_VERSION = "11.9.0"
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 [functions]
   directory = ".netlify/functions-internal"
