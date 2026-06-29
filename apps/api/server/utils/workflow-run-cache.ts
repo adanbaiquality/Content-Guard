@@ -1,13 +1,30 @@
-const latestPublicRunIdsByStory = new Map<string, string>();
-const workflowRunIdsByPublicRunId = new Map<string, string>();
-const publicRunIdsByWorkflowRunId = new Map<string, string>();
+import { and, eq, ne } from "drizzle-orm";
 
-function toCacheKey(spaceId: string | number, storyId: string | number): string {
-  return `${String(spaceId).trim()}:${String(storyId).trim()}`;
-}
+import {
+  getContentGuardOrm,
+  latestStoryRunsTable,
+  runIdMappingsTable,
+} from "./content-guard-orm.ts";
+
+const SAFE_RUN_ID_PATTERN = /^[A-Za-z0-9_-]+$/u;
 
 function normalizeRunId(runId: string): string {
   return runId.trim();
+}
+
+function normalizeSafeRunId(runId: string): string | undefined {
+  const normalized = normalizeRunId(runId);
+
+  if (!normalized || !SAFE_RUN_ID_PATTERN.test(normalized)) {
+    return undefined;
+  }
+
+  return normalized;
+}
+
+function normalizeStoryScopeId(value: string | number): string | undefined {
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 export function rememberLatestRunId(params: {
@@ -17,14 +34,65 @@ export function rememberLatestRunId(params: {
   workflowRunId?: string;
 }): void {
   const { publicRunId, spaceId, storyId, workflowRunId } = params;
-  const normalizedPublicRunId = normalizeRunId(publicRunId);
+  const normalizedPublicRunId = normalizeSafeRunId(publicRunId);
+  const normalizedSpaceId = normalizeStoryScopeId(spaceId);
+  const normalizedStoryId = normalizeStoryScopeId(storyId);
 
-  latestPublicRunIdsByStory.set(toCacheKey(spaceId, storyId), normalizedPublicRunId);
+  if (!normalizedPublicRunId || !normalizedSpaceId || !normalizedStoryId) {
+    return;
+  }
 
-  if (workflowRunId) {
-    const normalizedWorkflowRunId = normalizeRunId(workflowRunId);
-    workflowRunIdsByPublicRunId.set(normalizedPublicRunId, normalizedWorkflowRunId);
-    publicRunIdsByWorkflowRunId.set(normalizedWorkflowRunId, normalizedPublicRunId);
+  try {
+    const db = getContentGuardOrm();
+    const updatedAt = new Date().toISOString();
+
+    db.insert(latestStoryRunsTable)
+      .values({
+        publicRunId: normalizedPublicRunId,
+        spaceId: normalizedSpaceId,
+        storyId: normalizedStoryId,
+        updatedAt,
+      })
+      .onConflictDoUpdate({
+        set: {
+          publicRunId: normalizedPublicRunId,
+          updatedAt,
+        },
+        target: [latestStoryRunsTable.spaceId, latestStoryRunsTable.storyId],
+      })
+      .run();
+
+    if (workflowRunId) {
+      const normalizedWorkflowRunId = normalizeSafeRunId(workflowRunId);
+
+      if (!normalizedWorkflowRunId) {
+        return;
+      }
+
+      db.delete(runIdMappingsTable)
+        .where(and(
+          eq(runIdMappingsTable.workflowRunId, normalizedWorkflowRunId),
+          ne(runIdMappingsTable.publicRunId, normalizedPublicRunId),
+        ))
+        .run();
+
+      db.insert(runIdMappingsTable)
+        .values({
+          publicRunId: normalizedPublicRunId,
+          updatedAt,
+          workflowRunId: normalizedWorkflowRunId,
+        })
+        .onConflictDoUpdate({
+          set: {
+            updatedAt,
+            workflowRunId: normalizedWorkflowRunId,
+          },
+          target: runIdMappingsTable.publicRunId,
+        })
+        .run();
+    }
+  } catch {
+    // Fail open for local cache bookkeeping; request flow should continue.
   }
 }
 
@@ -33,14 +101,71 @@ export function getLatestRunId(params: {
   storyId: string | number;
 }): string | undefined {
   const { spaceId, storyId } = params;
-  return latestPublicRunIdsByStory.get(toCacheKey(spaceId, storyId));
+  const normalizedSpaceId = normalizeStoryScopeId(spaceId);
+  const normalizedStoryId = normalizeStoryScopeId(storyId);
+
+  if (!normalizedSpaceId || !normalizedStoryId) {
+    return undefined;
+  }
+
+  try {
+    const db = getContentGuardOrm();
+
+    const row = db.select({ publicRunId: latestStoryRunsTable.publicRunId })
+      .from(latestStoryRunsTable)
+      .where(and(
+        eq(latestStoryRunsTable.spaceId, normalizedSpaceId),
+        eq(latestStoryRunsTable.storyId, normalizedStoryId),
+      ))
+      .limit(1)
+      .get();
+
+    return typeof row?.publicRunId === "string" ? row.publicRunId : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function resolveWorkflowRunId(runId: string): string {
-  const normalizedRunId = normalizeRunId(runId);
-  return workflowRunIdsByPublicRunId.get(normalizedRunId) ?? normalizedRunId;
+  const normalizedRunId = normalizeSafeRunId(runId);
+
+  if (!normalizedRunId) {
+    return normalizeRunId(runId);
+  }
+
+  try {
+    const db = getContentGuardOrm();
+
+    const row = db.select({ workflowRunId: runIdMappingsTable.workflowRunId })
+      .from(runIdMappingsTable)
+      .where(eq(runIdMappingsTable.publicRunId, normalizedRunId))
+      .limit(1)
+      .get();
+
+    return typeof row?.workflowRunId === "string" ? row.workflowRunId : normalizedRunId;
+  } catch {
+    return normalizedRunId;
+  }
 }
 
 export function resolvePublicRunId(workflowRunId: string): string | undefined {
-  return publicRunIdsByWorkflowRunId.get(normalizeRunId(workflowRunId));
+  const normalizedWorkflowRunId = normalizeSafeRunId(workflowRunId);
+
+  if (!normalizedWorkflowRunId) {
+    return undefined;
+  }
+
+  try {
+    const db = getContentGuardOrm();
+
+    const row = db.select({ publicRunId: runIdMappingsTable.publicRunId })
+      .from(runIdMappingsTable)
+      .where(eq(runIdMappingsTable.workflowRunId, normalizedWorkflowRunId))
+      .limit(1)
+      .get();
+
+    return typeof row?.publicRunId === "string" ? row.publicRunId : undefined;
+  } catch {
+    return undefined;
+  }
 }

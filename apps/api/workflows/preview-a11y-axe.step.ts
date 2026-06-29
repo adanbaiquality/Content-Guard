@@ -67,7 +67,7 @@ export const runPreviewA11yAxeAudit = async (
     });
 
     const axeResults = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a","wcag22aa", "best-practice"])
       .analyze();
 
     const violations = axeResults.violations.map((violation: any) => ({

@@ -1,6 +1,7 @@
 import { defineConfig } from "nitro/config";
 
 process.env.WORKFLOW_LOCAL_DATA_DIR ??= "node_modules/.nitro/workflow-data";
+process.env.WORKFLOW_TARGET_WORLD ??= "local";
 
 const isWindowsDev = process.platform === "win32" && process.env.NODE_ENV !== "production";
 const shouldEnableWorkflowNitroModule =

@@ -5,6 +5,7 @@ import { defineEventHandler } from "h3";
 import { parseWorkflowName } from "workflow/observability";
 
 import { resolvePublicRunId } from "../../../utils/workflow-run-cache.ts";
+import { listPersistedWorkflowRunOutputs } from "../../../utils/workflow-run-output-store.ts";
 
 type WorkflowRunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
@@ -138,15 +139,31 @@ const readWorkflowRunsFromDirectory = async (
 };
 
 export default defineEventHandler(async () => {
-  const [runDirectoryRecords, outputDirectoryRecords] = await Promise.all([
+  const [runDirectoryRecords, outputDirectoryRecords, sqliteOutputRecords] = await Promise.all([
     readWorkflowRunsFromDirectory(RUNS_DIRECTORY, readRunRecord),
     readWorkflowRunsFromDirectory(OUTPUTS_DIRECTORY, readOutputRecord),
+    listPersistedWorkflowRunOutputs(),
   ]);
 
   const runsByRunId = new Map<string, WorkflowRunListItem>();
 
+  for (const run of sqliteOutputRecords) {
+    const listItem = toWorkflowRunListItemFromOutput({
+      runId: run.runId,
+      status: run.status,
+      timestamps: run.timestamps,
+      workflowName: run.workflowName,
+    });
+
+    if (listItem) {
+      runsByRunId.set(listItem.runId, listItem);
+    }
+  }
+
   for (const run of outputDirectoryRecords) {
-    runsByRunId.set(run.runId, run);
+    if (!runsByRunId.has(run.runId)) {
+      runsByRunId.set(run.runId, run);
+    }
   }
 
   for (const run of runDirectoryRecords) {

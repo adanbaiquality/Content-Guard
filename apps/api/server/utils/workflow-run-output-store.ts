@@ -1,5 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+
+import { desc, eq } from "drizzle-orm";
+
+import { getContentGuardOrm, workflowRunOutputsTable } from "./content-guard-orm.ts";
 
 export type WorkflowRunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
@@ -112,19 +116,105 @@ const parseWorkflowRunOutputResponse = (
 export async function persistWorkflowRunOutput(
   response: WorkflowRunOutputResponse,
 ): Promise<void> {
-  const filePath = resolveJsonFilePath(OUTPUTS_DIRECTORY, response.runId);
+  const safeRunId = normalizeSafeRunId(response.runId);
 
-  if (!filePath) {
+  if (!safeRunId) {
     throw new Error("Invalid workflow runId for persistence.");
   }
 
-  await mkdir(OUTPUTS_DIRECTORY, { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(response, null, 2)}\n`, "utf8");
+  const db = getContentGuardOrm();
+  const outputJson = response.output === undefined ? null : JSON.stringify(response.output);
+  const updatedAt = new Date().toISOString();
+
+  db.insert(workflowRunOutputsTable)
+    .values({
+      completedAt: response.timestamps.completedAt,
+      createdAt: response.timestamps.createdAt,
+      errorMessage: response.errorMessage,
+      outputJson,
+      runId: safeRunId,
+      startedAt: response.timestamps.startedAt,
+      status: response.status,
+      updatedAt,
+      workflowName: response.workflowName,
+    })
+    .onConflictDoUpdate({
+      set: {
+        completedAt: response.timestamps.completedAt,
+        createdAt: response.timestamps.createdAt,
+        errorMessage: response.errorMessage,
+        outputJson,
+        startedAt: response.timestamps.startedAt,
+        status: response.status,
+        updatedAt,
+        workflowName: response.workflowName,
+      },
+      target: workflowRunOutputsTable.runId,
+    })
+    .run();
 }
 
 export async function readPersistedWorkflowRunOutput(
   runId: string,
 ): Promise<WorkflowRunOutputResponse | undefined> {
+  const safeRunId = normalizeSafeRunId(runId);
+
+  if (!safeRunId) {
+    return undefined;
+  }
+
+  const db = getContentGuardOrm();
+  const row = db.select({
+    completedAt: workflowRunOutputsTable.completedAt,
+    createdAt: workflowRunOutputsTable.createdAt,
+    errorMessage: workflowRunOutputsTable.errorMessage,
+    outputJson: workflowRunOutputsTable.outputJson,
+    runId: workflowRunOutputsTable.runId,
+    startedAt: workflowRunOutputsTable.startedAt,
+    status: workflowRunOutputsTable.status,
+    workflowName: workflowRunOutputsTable.workflowName,
+  })
+    .from(workflowRunOutputsTable)
+    .where(eq(workflowRunOutputsTable.runId, safeRunId))
+    .limit(1)
+    .get();
+
+  if (row) {
+    if (
+      typeof row.runId === "string" &&
+      isWorkflowRunStatus(row.status) &&
+      typeof row.workflowName === "string" &&
+      typeof row.createdAt === "string"
+    ) {
+      let output: unknown;
+
+      if (typeof row.outputJson === "string") {
+        try {
+          output = JSON.parse(row.outputJson);
+        } catch {
+          output = undefined;
+        }
+      }
+
+      return {
+        errorMessage: typeof row.errorMessage === "string" ? row.errorMessage : undefined,
+        ok: true,
+        output,
+        runId: row.runId,
+        status: row.status,
+        timestamps: {
+          completedAt: typeof row.completedAt === "string" ? row.completedAt : undefined,
+          createdAt: row.createdAt,
+          startedAt: typeof row.startedAt === "string" ? row.startedAt : undefined,
+        },
+        workflowName: row.workflowName,
+      };
+    }
+
+    return undefined;
+  }
+
+  // Backward compatibility for legacy JSON snapshots.
   const filePath = resolveJsonFilePath(OUTPUTS_DIRECTORY, runId);
 
   if (!filePath) {
@@ -141,6 +231,61 @@ export async function readPersistedWorkflowRunOutput(
 
     throw error;
   }
+}
+
+export async function listPersistedWorkflowRunOutputs(): Promise<WorkflowRunOutputResponse[]> {
+  const db = getContentGuardOrm();
+  const rows = db.select({
+    completedAt: workflowRunOutputsTable.completedAt,
+    createdAt: workflowRunOutputsTable.createdAt,
+    errorMessage: workflowRunOutputsTable.errorMessage,
+    outputJson: workflowRunOutputsTable.outputJson,
+    runId: workflowRunOutputsTable.runId,
+    startedAt: workflowRunOutputsTable.startedAt,
+    status: workflowRunOutputsTable.status,
+    workflowName: workflowRunOutputsTable.workflowName,
+  })
+    .from(workflowRunOutputsTable)
+    .orderBy(desc(workflowRunOutputsTable.createdAt))
+    .all();
+
+  const results: WorkflowRunOutputResponse[] = [];
+
+  for (const row of rows) {
+    if (
+      typeof row.runId !== "string" ||
+      !isWorkflowRunStatus(row.status) ||
+      typeof row.workflowName !== "string" ||
+      typeof row.createdAt !== "string"
+    ) {
+      continue;
+    }
+
+    let output: unknown;
+    if (typeof row.outputJson === "string") {
+      try {
+        output = JSON.parse(row.outputJson);
+      } catch {
+        output = undefined;
+      }
+    }
+
+    results.push({
+      errorMessage: typeof row.errorMessage === "string" ? row.errorMessage : undefined,
+      ok: true,
+      output,
+      runId: row.runId,
+      status: row.status,
+      timestamps: {
+        completedAt: typeof row.completedAt === "string" ? row.completedAt : undefined,
+        createdAt: row.createdAt,
+        startedAt: typeof row.startedAt === "string" ? row.startedAt : undefined,
+      },
+      workflowName: row.workflowName,
+    });
+  }
+
+  return results;
 }
 
 export async function readPersistedWorkflowRunRecord(

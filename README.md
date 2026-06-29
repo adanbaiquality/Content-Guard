@@ -27,6 +27,7 @@ Important variables:
 - `API_PORT` (default: `8787`)
 - `WORKFLOW_TARGET_WORLD` (optional, defaults to local world during development)
 - `WORKFLOW_POSTGRES_URL` (required when `WORKFLOW_TARGET_WORLD=@workflow/world-postgres`)
+- `CONTENT_GUARD_DB_PATH` (optional, defaults to `.workflow-data/content-guard.db` for local cache/output persistence)
 
 ## Run locally
 
