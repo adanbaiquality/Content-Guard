@@ -36,32 +36,20 @@ const executeStoryblokReviewingAudits = async (
     audit.step = "audits";
   });
 
-  const browserAuditsEnabled =
-    process.env.CONTENT_GUARD_ENABLE_BROWSER_AUDITS === "1" ||
-    (process.platform !== "win32" && process.env.CONTENT_GUARD_ENABLE_BROWSER_AUDITS !== "0");
-
   const browserAudits: AuditResult[] = [];
 
-  if (browserAuditsEnabled) {
-    const [{ runPreviewA11yAxeAudit }, { runPreviewAFMAudit }] = await Promise.all([
-      import("./preview-a11y-axe.step.ts"),
-      import("./preview-afm.step.ts"),
-    ]);
+  const [{ runPreviewA11yAxeAudit }, { runPreviewAFMAudit }] = await Promise.all([
+    import("./preview-a11y-axe.step.ts"),
+    import("./preview-afm.step.ts"),
+  ]);
 
-    const a11yAudit = await runPreviewA11yAxeAudit(enrichedPayload);
-    a11yAudit.step = "preview-a11y-axe";
-    browserAudits.push(a11yAudit);
+  const a11yAudit = await runPreviewA11yAxeAudit(enrichedPayload);
+  a11yAudit.step = "preview-a11y-axe";
+  browserAudits.push(a11yAudit);
 
-    const afmAudit = await runPreviewAFMAudit(enrichedPayload);
-    afmAudit.step = "preview-afm";
-    browserAudits.push(afmAudit);
-  } else {
-    console.warn(
-      "Skipping browser-based preview audits on platform",
-      process.platform,
-      "Set CONTENT_GUARD_ENABLE_BROWSER_AUDITS=1 to force-enable.",
-    );
-  }
+  const afmAudit = await runPreviewAFMAudit(enrichedPayload);
+  afmAudit.step = "preview-afm";
+  browserAudits.push(afmAudit);
 
   const audits = [...baseAudits, ...browserAudits];
   const passed = audits.filter((audit) => audit.passed).length;
