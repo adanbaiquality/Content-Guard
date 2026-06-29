@@ -234,6 +234,29 @@ function mapAfmAudit(step: WorkflowStepSummary): AuditResult[] {
   }));
 }
 
+function mapBrandSeverity(severity: unknown): AuditResult["severity"] {
+  if (typeof severity !== "string") {
+    return "moderate";
+  }
+
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return "critical";
+    case "serious":
+    case "high":
+      return "serious";
+    case "moderate":
+    case "medium":
+      return "moderate";
+    case "minor":
+    case "low":
+    case "info":
+      return "minor";
+    default:
+      return "moderate";
+  }
+}
+
 function mapBrandAudit(step: WorkflowStepSummary): AuditResult[] {
   const sourceAudit = step.audits[0];
   const violations = Array.isArray(sourceAudit?.meta?.violations)
@@ -290,10 +313,11 @@ function mapBrandAudit(step: WorkflowStepSummary): AuditResult[] {
         excerpt: violation.excerpt,
         explanation: violation.explanation,
         guideline: violation.guideline,
+        severity: violation.severity,
       },
       passed: false,
       ruleId: guideline,
-      severity: "moderate",
+      severity: mapBrandSeverity(violation.severity),
     } satisfies AuditResult;
   });
 }
