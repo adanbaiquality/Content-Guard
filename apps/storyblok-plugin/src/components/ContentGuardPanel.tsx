@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import CategorySection from "@/components/AccessibilitySection";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { mockAuditResults } from "@/mocks/auditResults";
 import { type AuditCategory, type AuditResult } from "@/types";
 
@@ -25,24 +27,24 @@ function getCategoryStatus(audits: AuditResult[]) {
   return "warning";
 }
 
-function CategoryTab({
+function isAuditCategory(value: string): value is AuditCategory {
+  return CATEGORIES.includes(value as AuditCategory);
+}
+
+function CategoryTabTrigger({
   category,
   audits,
-  active,
-  onSelect,
 }: {
   category: AuditCategory;
   audits: AuditResult[];
-  active: boolean;
-  onSelect: (category: AuditCategory) => void;
 }) {
   const issueCount = audits.filter((a) => !a.passed).length;
   const status = getCategoryStatus(audits);
 
   const styles = {
-    pass: "border-emerald-200 text-emerald-700",
-    blocking: "border-red-200 text-red-700",
-    warning: "border-amber-200 text-amber-700",
+    pass: "border-emerald-200 text-emerald-700 data-[state=active]:bg-emerald-50",
+    blocking: "border-red-200 text-red-700 data-[state=active]:bg-red-50",
+    warning: "border-amber-200 text-amber-700 data-[state=active]:bg-amber-50",
   };
 
   const dotStyles = {
@@ -52,18 +54,19 @@ function CategoryTab({
   };
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(category)}
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${styles[status]} ${
-        active ? "bg-white shadow-sm" : "bg-white/50 hover:bg-white"
-      }`}
+    <TabsTrigger
+      value={category}
+      className={cn(
+        "inline-flex h-auto items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
+        "bg-white/50 hover:bg-white data-[state=active]:text-current",
+        styles[status],
+      )}
     >
       <Image src={CATEGORY_ICONS[category]} alt="" width={14} height={14} className="opacity-75" />
       <span className="font-bold">{CATEGORY_LABELS[category]}</span>
       <span className="text-zinc-500">{issueCount} issue{issueCount === 1 ? "" : "s"}</span>
       <span className={`h-2 w-2 rounded-full ${dotStyles[status]}`} />
-    </button>
+    </TabsTrigger>
   );
 }
 
@@ -89,7 +92,6 @@ function ProgressSummary({ audits }: { audits: AuditResult[] }) {
         <p className="text-sm font-semibold text-zinc-900">
           {done}/{total}
         </p>
-        <p className="text-[11px] text-zinc-500">{remaining} left</p>
       </div>
     </div>
   );
@@ -122,18 +124,21 @@ export default function ContentGuardPanel() {
         <ProgressSummary audits={activeAudits} />
       </header>
 
-      {/* Category tabs */}
-      <div className="flex flex-wrap gap-2 px-1">
-        {CATEGORIES.map((cat) => (
-          <CategoryTab
-            key={cat}
-            category={cat}
-            audits={byCategory[cat]}
-            active={activeCategory === cat}
-            onSelect={setActiveCategory}
-          />
-        ))}
-      </div>
+      <Tabs
+        value={activeCategory}
+        onValueChange={(value) => {
+          if (isAuditCategory(value)) {
+            setActiveCategory(value);
+          }
+        }}
+      >
+        {/* Category tabs */}
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 px-1">
+          {CATEGORIES.map((cat) => (
+            <CategoryTabTrigger key={cat} category={cat} audits={byCategory[cat]} />
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Active category section */}
       <div className="space-y-5">
