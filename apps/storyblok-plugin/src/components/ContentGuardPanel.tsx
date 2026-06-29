@@ -25,6 +25,39 @@ const CATEGORY_ICONS: Record<AuditCategory, string> = {
   brand: "/brand-icon.svg",
 };
 
+const AFM_KREDIETWAARSCHUWING_DOC_URL =
+  "https://www.afm.nl/nl-nl/sector/themas/dienstverlening-aan-consumenten/informatieverstrekking/kredietwaarschuwing";
+
+function getAfmRuleInfo(type: unknown): { ruleId: string; ruleUrl: string } {
+  const violationType = typeof type === "string" ? type : "";
+
+  const afmRuleMap: Record<string, { ruleId: string; ruleUrl: string }> = {
+    "kredietwaarschuwing-position-size": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+    "kredietwaarschuwing-source": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+    "kredietwaarschuwing-visibility": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+    "missing-kredietwaarschuwing": {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    },
+  };
+
+  return (
+    afmRuleMap[violationType] || {
+      ruleId: "kredietwaarschuwing",
+      ruleUrl: AFM_KREDIETWAARSCHUWING_DOC_URL,
+    }
+  );
+}
+
 type WorkflowRunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
 type WorkflowAudit = {
@@ -190,6 +223,8 @@ function mapAfmAudit(step: WorkflowStepSummary): AuditResult[] {
       type: violation.type,
     },
     passed: false,
+    ruleId: getAfmRuleInfo(violation.type).ruleId,
+    ruleUrl: getAfmRuleInfo(violation.type).ruleUrl,
     severity:
       violation.severity === "error"
         ? "serious"

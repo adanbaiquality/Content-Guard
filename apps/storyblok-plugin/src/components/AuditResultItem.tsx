@@ -56,14 +56,14 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
             href={ruleUrl}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700 underline-offset-2 hover:text-emerald-900 hover:underline"
+            className="shrink-0 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[10px] font-medium text-emerald-700 underline-offset-2 hover:text-emerald-900 hover:underline"
             title="Open this official reference"
           >
             {result.ruleId}
           </a>
         )}
         {result.ruleId && !ruleUrl && (
-          <span className="shrink-0 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+          <span className="shrink-0 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[10px] font-medium text-emerald-700">
             {result.ruleId}
           </span>
         )}
@@ -156,14 +156,14 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
             href={ruleUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600 underline-offset-2 hover:text-zinc-800 hover:underline"
+            className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-medium text-zinc-600 underline-offset-2 hover:text-zinc-800 hover:underline"
             title="Open this official reference"
           >
             {result.ruleId}
           </a>
         )}
         {result.ruleId && !ruleUrl && (
-          <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+          <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[10px] font-medium text-zinc-600">
             {result.ruleId}
           </span>
         )}
