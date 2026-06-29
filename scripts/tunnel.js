@@ -2,30 +2,47 @@
 
 const { execSync } = require('child_process');
 
+function extractTunnelId(payload) {
+  if (!payload) return undefined;
+  if (typeof payload.tunnelId === 'string') return payload.tunnelId;
+  if (payload.tunnel && typeof payload.tunnel.tunnelId === 'string') return payload.tunnel.tunnelId;
+  if (Array.isArray(payload) && payload[0]) return extractTunnelId(payload[0]);
+  if (Array.isArray(payload.value) && payload.value[0]) return extractTunnelId(payload.value[0]);
+  return undefined;
+}
+
 function getOrCreateTunnel() {
   try {
     const output = execSync('devtunnel list -j', { encoding: 'utf-8' });
     const tunnels = JSON.parse(output);
+    const tunnelId = extractTunnelId(tunnels);
     
-    if (tunnels && tunnels.length > 0) {
-      const tunnelId = tunnels[0].tunnelId;
+    if (tunnelId) {
       console.log(`Using existing tunnel: ${tunnelId}`);
       return tunnelId;
     }
-  } catch {
-    // No tunnels exist or JSON parse failed
+  } catch (error) {
+    // No tunnels exist, devtunnel may not be installed, or JSON parse failed
+    console.warn('Could not read existing tunnels:', error.message);
   }
   
   console.log('Creating new tunnel...');
-  const output = execSync('devtunnel create --allow-anonymous', { encoding: 'utf-8' });
-  const match = output.match(/Tunnel ID\s*:\s*([a-z0-9-]+\.[a-z]+)/);
-  if (!match || !match[1]) {
-    console.error('Failed to parse tunnel ID');
+  try {
+    const output = execSync('devtunnel create --allow-anonymous -j', { encoding: 'utf-8' });
+    const tunnel = JSON.parse(output);
+    const tunnelId = extractTunnelId(tunnel);
+
+    if (!tunnelId) {
+      console.error('Failed to parse tunnel ID from create response');
+      process.exit(1);
+    }
+
+    console.log(`✓ Created tunnel: ${tunnelId}`);
+    return tunnelId;
+  } catch (error) {
+    console.error('Failed to create tunnel:', error.message);
     process.exit(1);
   }
-  
-  console.log(`✓ Created tunnel: ${match[1]}`);
-  return match[1];
 }
 
 function hostTunnel(tunnelId) {
@@ -35,8 +52,9 @@ function hostTunnel(tunnelId) {
     try {
       execSync(`devtunnel port create ${tunnelId} -p 8787`, { stdio: 'pipe' });
       console.log('✓ Port configured');
-    } catch {
+    } catch (error) {
       // Port might already exist
+      console.warn('Could not create port 8787 (may already exist):', error.message);
     }
     
     console.log('\nStarting tunnel...\n');

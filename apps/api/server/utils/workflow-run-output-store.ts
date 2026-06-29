@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { desc, eq } from "drizzle-orm";
 
 import { getContentGuardOrm, workflowRunOutputsTable } from "./content-guard-orm.ts";
+import logger from "./logger.ts";
+import { formatErrorMessage, normalizeSafeRunId } from "./workflow-utils.ts";
 
 export type WorkflowRunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
@@ -38,7 +40,6 @@ interface PersistedWorkflowRunRecord {
 const WORKFLOW_DATA_DIRECTORY = join(process.cwd(), ".workflow-data");
 const RUNS_DIRECTORY = join(WORKFLOW_DATA_DIRECTORY, "runs");
 const OUTPUTS_DIRECTORY = join(WORKFLOW_DATA_DIRECTORY, "outputs");
-const SAFE_RUN_ID_PATTERN = /^[A-Za-z0-9_-]+$/u;
 
 const isWorkflowRunStatus = (value: unknown): value is WorkflowRunStatus =>
   value === "pending" ||
@@ -46,16 +47,6 @@ const isWorkflowRunStatus = (value: unknown): value is WorkflowRunStatus =>
   value === "completed" ||
   value === "failed" ||
   value === "cancelled";
-
-const normalizeSafeRunId = (runId: string): string | undefined => {
-  const trimmedRunId = runId.trim();
-
-  if (!trimmedRunId || !SAFE_RUN_ID_PATTERN.test(trimmedRunId)) {
-    return undefined;
-  }
-
-  return trimmedRunId;
-};
 
 const resolveJsonFilePath = (directory: string, runId: string): string | undefined => {
   const safeRunId = normalizeSafeRunId(runId);
@@ -191,7 +182,11 @@ export async function readPersistedWorkflowRunOutput(
       if (typeof row.outputJson === "string") {
         try {
           output = JSON.parse(row.outputJson);
-        } catch {
+        } catch (error) {
+          logger.warn(
+            { error: formatErrorMessage(error), runId },
+            "[WorkflowRunOutputStore] Failed to parse output JSON",
+          );
           output = undefined;
         }
       }
@@ -229,6 +224,10 @@ export async function readPersistedWorkflowRunOutput(
       return undefined;
     }
 
+    logger.warn(
+      { error: formatErrorMessage(error), runId },
+      "[WorkflowRunOutputStore] Failed to read legacy workflow run output from file",
+    );
     throw error;
   }
 }
@@ -265,7 +264,11 @@ export async function listPersistedWorkflowRunOutputs(): Promise<WorkflowRunOutp
     if (typeof row.outputJson === "string") {
       try {
         output = JSON.parse(row.outputJson);
-      } catch {
+      } catch (error) {
+        logger.warn(
+          { error: formatErrorMessage(error), runId: row.runId },
+          "[WorkflowRunOutputStore] Failed to parse output JSON in list",
+        );
         output = undefined;
       }
     }
@@ -329,6 +332,10 @@ export async function readPersistedWorkflowRunRecord(
       return undefined;
     }
 
+    logger.warn(
+      { error: formatErrorMessage(error), workflowRunId },
+      "[WorkflowRunOutputStore] Failed to read workflow run record from file",
+    );
     throw error;
   }
 }

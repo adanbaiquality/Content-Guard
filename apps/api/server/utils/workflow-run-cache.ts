@@ -5,27 +5,13 @@ import {
   latestStoryRunsTable,
   runIdMappingsTable,
 } from "./content-guard-orm.ts";
-
-const SAFE_RUN_ID_PATTERN = /^[A-Za-z0-9_-]+$/u;
-
-function normalizeRunId(runId: string): string {
-  return runId.trim();
-}
-
-function normalizeSafeRunId(runId: string): string | undefined {
-  const normalized = normalizeRunId(runId);
-
-  if (!normalized || !SAFE_RUN_ID_PATTERN.test(normalized)) {
-    return undefined;
-  }
-
-  return normalized;
-}
-
-function normalizeStoryScopeId(value: string | number): string | undefined {
-  const normalized = String(value).trim();
-  return normalized.length > 0 ? normalized : undefined;
-}
+import logger from "./logger.ts";
+import {
+  formatErrorMessage,
+  normalizeRunId,
+  normalizeSafeRunId,
+  normalizeStoryScopeId,
+} from "./workflow-utils.ts";
 
 export function rememberLatestRunId(params: {
   publicRunId: string;
@@ -91,8 +77,12 @@ export function rememberLatestRunId(params: {
         })
         .run();
     }
-  } catch {
+  } catch (error) {
     // Fail open for local cache bookkeeping; request flow should continue.
+    logger.warn(
+      { error: formatErrorMessage(error), publicRunId, spaceId, storyId },
+      "[WorkflowRunCache] Failed to persist latest run ID — getLatestRunId will not find this run",
+    );
   }
 }
 
@@ -121,7 +111,11 @@ export function getLatestRunId(params: {
       .get();
 
     return typeof row?.publicRunId === "string" ? row.publicRunId : undefined;
-  } catch {
+  } catch (error) {
+    logger.warn(
+      { error: formatErrorMessage(error), spaceId, storyId },
+      "[WorkflowRunCache] Failed to query latest run ID",
+    );
     return undefined;
   }
 }
@@ -143,7 +137,11 @@ export function resolveWorkflowRunId(runId: string): string {
       .get();
 
     return typeof row?.workflowRunId === "string" ? row.workflowRunId : normalizedRunId;
-  } catch {
+  } catch (error) {
+    logger.warn(
+      { error: formatErrorMessage(error), runId },
+      "[WorkflowRunCache] Failed to resolve workflow run ID — using public run ID",
+    );
     return normalizedRunId;
   }
 }
@@ -165,7 +163,11 @@ export function resolvePublicRunId(workflowRunId: string): string | undefined {
       .get();
 
     return typeof row?.publicRunId === "string" ? row.publicRunId : undefined;
-  } catch {
+  } catch (error) {
+    logger.warn(
+      { error: formatErrorMessage(error), workflowRunId },
+      "[WorkflowRunCache] Failed to resolve public run ID",
+    );
     return undefined;
   }
 }

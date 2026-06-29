@@ -1,5 +1,4 @@
 import { HTTPError, defineEventHandler, getRouterParam } from "h3";
-import { WorkflowRunNotFoundError } from "workflow/errors";
 import { getRun } from "workflow/api";
 
 import logger from "../../../../utils/logger.ts";
@@ -11,10 +10,10 @@ import {
   type WorkflowRunOutputResponse,
   type WorkflowRunStatus,
 } from "../../../../utils/workflow-run-output-store.ts";
+import { formatErrorMessage } from "../../../../utils/workflow-utils.ts";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 const HTTP_STATUS_NOT_FOUND = 404;
-const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
 
 type AuditSummaryItem = {
   audits?: unknown;
@@ -102,24 +101,10 @@ const normalizeOutputSummary = (output: unknown): unknown => {
   };
 };
 
-const resolveWorkflowOutput = async (
-  status: WorkflowRunStatus,
-  run: ReturnType<typeof getRun>,
-): Promise<unknown> => {
-  if (status !== "completed") {
-    return undefined;
-  }
 
-  return await run.returnValue;
-};
 
-const resolveErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Failed to load workflow run output.";
-};
+const resolveErrorMessage = (error: unknown): string =>
+  formatErrorMessage(error);
 
 const persistWorkflowRunDataSafely = async (response: WorkflowRunOutputResponse): Promise<void> => {
   try {
@@ -130,7 +115,7 @@ const persistWorkflowRunDataSafely = async (response: WorkflowRunOutputResponse)
         error: resolveErrorMessage(error),
         runId: response.runId,
       },
-      "Failed to persist workflow run output snapshot",
+      "[Workflows/Output] Failed to persist workflow run output snapshot",
     );
   }
 };
@@ -140,41 +125,74 @@ const fetchPersistedWorkflowRunData = async (
 ): Promise<WorkflowRunOutputResponse | undefined> => {
   const persistedOutput = await readPersistedWorkflowRunOutput(runId);
   if (persistedOutput) {
+    logger.info({ runId }, "[Workflows/Output] Found persisted output from database");
     return persistedOutput;
   }
 
   const workflowRunId = resolveWorkflowRunId(runId);
-  return await readPersistedWorkflowRunRecord(workflowRunId, runId);
+  if (workflowRunId !== runId) {
+    logger.info({ runId, workflowRunId }, "[Workflows/Output] Resolved public run ID to workflow run ID");
+    const persistedRecord = await readPersistedWorkflowRunRecord(workflowRunId, runId);
+    if (persistedRecord) {
+      logger.info({ runId, workflowRunId }, "[Workflows/Output] Found persisted record from file");
+      return persistedRecord;
+    }
+  } else {
+    logger.info(
+      { runId },
+      "[Workflows/Output] Could not resolve workflow run ID — no mapping found in database",
+    );
+  }
+
+  return undefined;
 };
 
-const fetchWorkflowRunData = async (runId: string): Promise<WorkflowRunOutputResponse> => {
+const tryFetchWorkflowRunData = async (runId: string): Promise<WorkflowRunOutputResponse | null> => {
   const workflowRunId = resolveWorkflowRunId(runId);
-  const run = getRun<unknown>(workflowRunId);
-  const status: WorkflowRunStatus = await run.status;
 
-  const [workflowName, createdAt, startedAt, completedAt] = await Promise.all([
-    run.workflowName,
-    run.createdAt,
-    run.startedAt,
-    run.completedAt,
-  ]);
+  if (workflowRunId === runId) {
+    logger.info(
+      { runId },
+      "[Workflows/Output] No workflow run ID mapping found — skipping live engine fetch",
+    );
+    return null;
+  }
 
-  const output = await resolveWorkflowOutput(status, run);
+  try {
+    logger.info({ runId, workflowRunId }, "[Workflows/Output] Fetching from workflow engine");
+    const run = getRun<unknown>(workflowRunId);
+    const status: WorkflowRunStatus = await run.status;
 
-  const response: WorkflowRunOutputResponse = {
-    ok: true,
-    output,
-    runId,
-    status,
-    timestamps: {
-      completedAt: completedAt?.toISOString() ?? undefined,
-      createdAt: createdAt.toISOString(),
-      startedAt: startedAt?.toISOString() ?? undefined,
-    },
-    workflowName,
-  };
+    const [workflowName, createdAt, startedAt, completedAt] = await Promise.all([
+      run.workflowName,
+      run.createdAt,
+      run.startedAt,
+      run.completedAt,
+    ]);
 
-  return response;
+    const output = await (status === "completed" ? run.returnValue : undefined);
+
+    const response: WorkflowRunOutputResponse = {
+      ok: true,
+      output,
+      runId,
+      status,
+      timestamps: {
+        completedAt: completedAt?.toISOString() ?? undefined,
+        createdAt: createdAt.toISOString(),
+        startedAt: startedAt?.toISOString() ?? undefined,
+      },
+      workflowName,
+    };
+
+    return response;
+  } catch (error) {
+    logger.warn(
+      { runId, workflowRunId, error: resolveErrorMessage(error) },
+      "[Workflows/Output] Failed to fetch from workflow engine",
+    );
+    return null;
+  }
 };
 
 export default defineEventHandler(async (event) => {
@@ -189,40 +207,39 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  try {
-    logger.info({ runId }, "[Workflows/Output] Fetching workflow run data");
-    const response = await fetchWorkflowRunData(runId);
+  // Try to fetch fresh data from the workflow engine
+  logger.info({ runId }, "[Workflows/Output] Attempting to fetch from workflow engine");
+  const freshResponse = await tryFetchWorkflowRunData(runId);
+
+  if (freshResponse) {
     const normalizedResponse: WorkflowRunOutputResponse = {
-      ...response,
-      output: normalizeOutputSummary(response.output),
+      ...freshResponse,
+      output: normalizeOutputSummary(freshResponse.output),
     };
 
     await persistWorkflowRunDataSafely(normalizedResponse);
-    logger.info({ runId, status: response.status }, "[Workflows/Output] Successfully returning workflow output");
+    logger.info({ runId, status: freshResponse.status }, "[Workflows/Output] Returning fresh workflow output");
     return normalizedResponse;
-  } catch (error) {
-    logger.info({ runId, error: resolveErrorMessage(error) }, "[Workflows/Output] Error fetching fresh data, trying persisted");
-    const persistedResponse = await fetchPersistedWorkflowRunData(runId);
-    if (persistedResponse) {
-      logger.info({ runId, status: persistedResponse.status }, "[Workflows/Output] Returning persisted workflow output");
-      return {
-        ...persistedResponse,
-        output: normalizeOutputSummary(persistedResponse.output),
-      };
-    }
-
-    if (WorkflowRunNotFoundError.is(error)) {
-      logger.info({ runId }, "[Workflows/Output] Workflow run not found");
-      throw new HTTPError({
-        message: `Workflow run '${runId}' not found.`,
-        status: HTTP_STATUS_NOT_FOUND,
-      });
-    }
-
-    logger.info({ runId, error: resolveErrorMessage(error) }, "[Workflows/Output] Error loading workflow");
-    throw new HTTPError({
-      message: resolveErrorMessage(error),
-      status: HTTP_STATUS_INTERNAL_SERVER_ERROR,
-    });
   }
+
+  // Fallback to persisted data
+  logger.info({ runId }, "[Workflows/Output] Fresh data unavailable, trying persisted storage");
+  const persistedResponse = await fetchPersistedWorkflowRunData(runId);
+  if (persistedResponse) {
+    logger.info({ runId, status: persistedResponse.status }, "[Workflows/Output] Returning persisted workflow output");
+    return {
+      ...persistedResponse,
+      output: normalizeOutputSummary(persistedResponse.output),
+    };
+  }
+
+  // Neither fresh nor persisted found
+  logger.warn(
+    { runId },
+    "[Workflows/Output] Workflow run not found in engine or persistent storage",
+  );
+  throw new HTTPError({
+    message: `Workflow run '${runId}' not found.`,
+    status: HTTP_STATUS_NOT_FOUND,
+  });
 });
