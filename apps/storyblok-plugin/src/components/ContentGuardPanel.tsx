@@ -651,30 +651,14 @@ function CategoryTabTrigger({
 }
 
 function ProgressSummary({ audits }: { audits: AuditResult[] }) {
-  const total = audits.length;
-  const remaining = audits.filter((a) => !a.passed).length;
-  const done = total - remaining;
-  const percent = total === 0 ? 100 : Math.round((done / total) * 100);
+  const issueCount = audits.filter((a) => !a.passed).length;
+  const isAllGood = issueCount === 0;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-3 py-2">
-      <div
-        className="relative grid h-12 w-12 place-items-center rounded-full"
-        style={{
-          background: `conic-gradient(#10b981 ${percent * 3.6}deg, #e5e7eb ${percent * 3.6}deg)`,
-        }}
-      >
-        <div className="grid h-9 w-9 place-items-center rounded-full bg-white text-[10px] font-bold text-zinc-700">
-          {percent}%
-        </div>
-      </div>
-      {remaining > 0 && (
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">
-            {remaining} issue{remaining === 1 ? "" : "s"}
-          </p>
-        </div>
-      )}
+    <div className="flex min-h-12 items-center rounded-xl border border-[var(--cg-border)] bg-white/80 px-4 py-2">
+      <p className="text-sm font-semibold text-zinc-900">
+        {isAllGood ? "Everything good" : `${issueCount} issue${issueCount === 1 ? "" : "s"}`}
+      </p>
     </div>
   );
 }
@@ -821,7 +805,7 @@ export default function ContentGuardPanel() {
                 <button
                   type="button"
                   onClick={() => setIsRunTooltipPinned((current) => !current)}
-                  className="text-[11px] font-medium text-zinc-500 underline decoration-dotted underline-offset-2 hover:text-zinc-700"
+                  className="text-[10px] font-normal text-zinc-400 transition-colors hover:text-zinc-500"
                 >
                   Last run: {formattedLastRunAt}
                 </button>
@@ -834,7 +818,7 @@ export default function ContentGuardPanel() {
               </div>
             )}
           </div>
-          <ProgressSummary audits={activeAudits} />
+          <ProgressSummary audits={audits} />
         </header>
       )}
 
