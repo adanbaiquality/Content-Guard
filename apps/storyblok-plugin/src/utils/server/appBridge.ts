@@ -1,6 +1,8 @@
 import jwt, { type VerifyCallback } from "jsonwebtoken";
-import { AppBridgeSession, VerifyResponse } from "@/types";
-import { NextApiRequest } from "next";
+import type { NextApiRequest } from "next";
+
+import type { AppBridgeSession, VerifyResponse } from "@/types";
+
 import { APP_BRIDGE_TOKEN_HEADER_KEY } from "../const";
 
 export const verifyAppBridgeHeader = async (req: NextApiRequest) => {
@@ -16,7 +18,7 @@ export const verifyAppBridgeToken = async (token: string): Promise<VerifyRespons
       result: await verifyToken(token, process.env.CLIENT_SECRET || ""),
     };
   } catch (error) {
-    return { ok: false, error };
+    return { error, ok: false };
   }
 };
 

@@ -1,4 +1,4 @@
-export type StoryblokWorkflowWebhookPayload = {
+export interface StoryblokWorkflowWebhookPayload {
   story_id?: number | string;
   story_version?: number | string;
   version?: number | string;
@@ -30,19 +30,19 @@ export type StoryblokWorkflowWebhookPayload = {
   space_id?: number | string;
   timestamp?: string;
   [key: string]: unknown;
-};
+}
 
-export type AuditResult = {
+export interface AuditResult {
   audit: string;
   passed: boolean;
   message: string;
   meta?: Record<string, unknown>;
-};
+}
 
-export type Audit = {
+export interface Audit {
   name: string;
   run: (payload: StoryblokWorkflowWebhookPayload) => Promise<AuditResult>;
-};
+}
 
 function asNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -77,13 +77,13 @@ const hasStoryIdentifierAudit: Audit = {
 
     return {
       audit: "has-story-identifier",
-      passed,
       message: passed
         ? "Story identifier found in webhook payload."
         : "Missing story identifier (expected story_id or story.id).",
       meta: {
         storyId: storyId ?? null,
       },
+      passed,
     };
   },
 };
@@ -98,21 +98,18 @@ const hasStoryMetadataAudit: Audit = {
 
     return {
       audit: "has-story-metadata",
-      passed,
       message: passed
         ? "Story metadata is present for downstream audits."
         : "No story metadata found (name/slug/full_slug/uuid).",
       meta: {
         availableFields: available,
       },
+      passed,
     };
   },
 };
 
-export const reviewingAudits: Audit[] = [
-  hasStoryIdentifierAudit,
-  hasStoryMetadataAudit,
-];
+export const reviewingAudits: Audit[] = [hasStoryIdentifierAudit, hasStoryMetadataAudit];
 
 export async function runReviewingAudits(
   payload: StoryblokWorkflowWebhookPayload,
@@ -124,11 +121,11 @@ export async function runReviewingAudits(
       } catch (error) {
         return {
           audit: audit.name,
-          passed: false,
           message: "Audit execution failed.",
           meta: {
             error: error instanceof Error ? error.message : String(error),
           },
+          passed: false,
         } satisfies AuditResult;
       }
     }),

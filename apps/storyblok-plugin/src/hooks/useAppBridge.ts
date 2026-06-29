@@ -1,4 +1,6 @@
-import {
+import { useEffect, useState } from "react";
+
+import type {
   AppBridgeSession,
   BeginOAuthMessagePayload,
   CreateBeginOAuthMessagePayload,
@@ -14,16 +16,18 @@ import {
   KEY_TOKEN,
   KEY_VALIDATED_PAYLOAD,
 } from "@/utils/const";
-import { useState, useEffect } from "react";
 
 const getPostMessageAction = (type: PluginType): PostMessageAction => {
   switch (type) {
-    case "space-plugin":
+    case "space-plugin": {
       return "app-changed";
-    case "tool-plugin":
+    }
+    case "tool-plugin": {
       return "tool-changed";
-    default:
+    }
+    default: {
       throw new Error(`Invalid plugin type: ${type}`);
+    }
   }
 };
 
@@ -52,6 +56,17 @@ const getSlug = () => {
 
 const postMessageToParent = (payload: unknown) => {
   window.parent.postMessage(payload, getParentHost());
+};
+
+const isAuthenticated = () => {
+  try {
+    const payload: AppBridgeSession = JSON.parse(
+      sessionStorage.getItem(KEY_VALIDATED_PAYLOAD) || "",
+    );
+    return payload && new Date().getTime() / 1000 < payload.exp;
+  } catch {
+    return false;
+  }
 };
 
 const useAppBridgeAuth = ({
@@ -86,17 +101,6 @@ const useAppBridgeAuth = ({
     await authenticated();
   };
 
-  const isAuthenticated = () => {
-    try {
-      const payload: AppBridgeSession = JSON.parse(
-        sessionStorage.getItem(KEY_VALIDATED_PAYLOAD) || "",
-      );
-      return payload && new Date().getTime() / 1000 < payload.exp;
-    } catch (err) {
-      return false;
-    }
-  };
-
   const sendValidateMessageToParent = () => {
     setStatus("authenticating");
     setError(undefined);
@@ -104,25 +108,25 @@ const useAppBridgeAuth = ({
     const slug = getSlug();
 
     try {
-      const payload = createValidateMessagePayload({ type, slug });
+      const payload = createValidateMessagePayload({ slug, type });
 
       postMessageToParent(payload);
       sessionStorage.setItem(KEY_PARENT_HOST, host);
       sessionStorage.setItem(KEY_SLUG, slug || "");
-    } catch (err) {
+    } catch {
       sessionStorage.removeItem(KEY_PARENT_HOST);
       sessionStorage.removeItem(KEY_SLUG);
       setError("Failed to request validation.");
     }
   };
 
-  const createValidateMessagePayload: CreateValidateMessagePayload = ({ type, slug }) => {
+  const createValidateMessagePayload: CreateValidateMessagePayload = ({ type: pluginType, slug }) => {
     const payload: ValidateMessagePayload = {
-      action: getPostMessageAction(type),
+      action: getPostMessageAction(pluginType),
       event: "validate",
     };
 
-    if (type === "tool-plugin") {
+    if (pluginType === "tool-plugin") {
       payload.tool = slug;
     }
 
@@ -132,17 +136,17 @@ const useAppBridgeAuth = ({
   const eventListener = async (event: MessageEvent) => {
     if (event.origin !== APP_BRIDGE_ORIGIN) {
       // This can happen for many different reasons,
-      // like a React DevTools extension, etc.
+      // Like a React DevTools extension, etc.
       return;
     }
 
     if (event.data.action === "validated") {
-      const token = event.data.token;
+      const { token } = event.data;
       try {
         const response = await (
           await fetch("/api/_app_bridge", {
-            method: "POST",
             body: JSON.stringify({ token }),
+            method: "POST",
           })
         ).json();
 
@@ -158,11 +162,11 @@ const useAppBridgeAuth = ({
           setStatus("error");
           setError(response.error);
         }
-      } catch (err) {
+      } catch (caughtError) {
         sessionStorage.removeItem(KEY_TOKEN);
         sessionStorage.removeItem(KEY_VALIDATED_PAYLOAD);
         setStatus("error");
-        setError(err);
+        setError(caughtError);
       }
     }
   };
@@ -176,7 +180,7 @@ const useAppBridgeAuth = ({
     };
   }, []);
 
-  return { status, init, error };
+  return { error, init, status };
 };
 
 const useOAuth = ({ type }: { type: PluginType }) => {
@@ -189,8 +193,8 @@ const useOAuth = ({ type }: { type: PluginType }) => {
 
     const response = await (
       await fetch("/api/_oauth", {
-        method: "POST",
         body: JSON.stringify({ initOAuth }),
+        method: "POST",
       })
     ).json();
 
@@ -208,22 +212,22 @@ const useOAuth = ({ type }: { type: PluginType }) => {
 
   const sendBeginOAuthMessageToParent = (redirectTo: string) => {
     const slug = getSlug();
-    const payload = createOAuthInitMessagePayload({ type, slug, redirectTo });
+    const payload = createOAuthInitMessagePayload({ redirectTo, slug, type });
     postMessageToParent(payload);
   };
 
   const createOAuthInitMessagePayload: CreateBeginOAuthMessagePayload = ({
-    type,
+    type: pluginType,
     slug,
     redirectTo,
   }) => {
     const payload: BeginOAuthMessagePayload = {
-      action: getPostMessageAction(type),
+      action: getPostMessageAction(pluginType),
       event: "beginOAuth",
       redirectTo,
     };
 
-    if (type === "tool-plugin") {
+    if (pluginType === "tool-plugin") {
       payload.tool = slug;
     }
 
@@ -237,12 +241,12 @@ export const useAppBridge = ({ type, oauth }: { type: PluginType; oauth: boolean
   const { init: initOAuth, status: oauthStatus } = useOAuth({ type });
 
   const { init: initAppBridgeAuth, status: appBridgeAuthStatus } = useAppBridgeAuth({
-    type,
     authenticated: async () => {
       if (oauth) {
         await initOAuth();
       }
     },
+    type,
   });
 
   const completed = oauth
@@ -254,10 +258,10 @@ export const useAppBridge = ({ type, oauth }: { type: PluginType; oauth: boolean
   }, [type, oauth]);
 
   return {
-    completed,
     appBridgeAuth: appBridgeAuthStatus,
-    oauth: oauthStatus,
-    getSlug,
+    completed,
     getParentHost,
+    getSlug,
+    oauth: oauthStatus,
   };
 };

@@ -1,10 +1,10 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { chromium } from "playwright";
 import {
-  isValidPreviewUrl,
-  resolvePreviewUrl,
   type AuditResult,
   type StoryblokWorkflowWebhookPayload,
+  isValidPreviewUrl,
+  resolvePreviewUrl,
 } from "../server/audits/index.ts";
 
 export async function runPreviewA11yAxeAudit(
@@ -17,7 +17,6 @@ export async function runPreviewA11yAxeAudit(
   if (!previewUrl) {
     return {
       audit: "preview-a11y-axe",
-      passed: false,
       message: "Missing preview URL in webhook payload.",
       meta: {
         expectedFields: [
@@ -29,17 +28,18 @@ export async function runPreviewA11yAxeAudit(
           "story.previewUrl",
         ],
       },
+      passed: false,
     };
   }
 
   if (!isValidPreviewUrl(previewUrl)) {
     return {
       audit: "preview-a11y-axe",
-      passed: false,
       message: "Preview URL is invalid (expected http/https URL).",
       meta: {
         previewUrl,
       },
+      passed: false,
     };
   }
 
@@ -50,20 +50,20 @@ export async function runPreviewA11yAxeAudit(
     const page = await context.newPage();
 
     await page.goto(previewUrl, {
-      waitUntil: "networkidle",
       timeout: 45_000,
+      waitUntil: "networkidle",
     });
 
     const axeResults = await new AxeBuilder({ page }).analyze();
 
     const violations = axeResults.violations.map((violation: any) => ({
-      id: violation.id,
-      impact: violation.impact,
       description: violation.description,
       help: violation.help,
       helpUrl: violation.helpUrl,
-      tags: violation.tags,
+      id: violation.id,
+      impact: violation.impact,
       nodes: violation.nodes.length,
+      tags: violation.tags,
     }));
 
     const passed = violations.length === 0;
@@ -72,28 +72,28 @@ export async function runPreviewA11yAxeAudit(
 
     return {
       audit: "preview-a11y-axe",
-      passed,
       message: passed
         ? "No axe accessibility violations detected on preview page."
         : `Found ${violations.length} accessibility violation(s) on preview page.`,
       meta: {
-        previewUrl,
-        violationsCount: violations.length,
-        violations,
-        passesCount: axeResults.passes.length,
-        incompleteCount: axeResults.incomplete.length,
         inapplicableCount: axeResults.inapplicable.length,
+        incompleteCount: axeResults.incomplete.length,
+        passesCount: axeResults.passes.length,
+        previewUrl,
+        violations,
+        violationsCount: violations.length,
       },
+      passed,
     };
   } catch (error) {
     return {
       audit: "preview-a11y-axe",
-      passed: false,
       message: "Failed to run Playwright + axe audit on preview URL.",
       meta: {
-        previewUrl,
         error: error instanceof Error ? error.message : String(error),
+        previewUrl,
       },
+      passed: false,
     };
   } finally {
     await browser.close();

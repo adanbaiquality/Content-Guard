@@ -9,14 +9,17 @@
     "build": "pnpm --filter @content-guard/storyblok-plugin build && pnpm --filter @content-guard/api build",
     "build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
     "build:api": "pnpm --filter @content-guard/api build",
-    "lint": "pnpm --filter @content-guard/storyblok-plugin lint",
+    "lint": "oxlint",
+    "lint:check": "oxlint --deny-warnings",
+    "lint:fix": "oxlint --fix",
     "typecheck": "pnpm --filter @content-guard/storyblok-plugin typecheck && pnpm --filter @content-guard/api typecheck",
     "format": "oxfmt",
     "format:check": "oxfmt --check"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",
-    "oxfmt": "^0.56.0"
+    "oxfmt": "^0.56.0",
+    "oxlint": "^1.71.0"
   },
   "engines": {
     "node": "24",

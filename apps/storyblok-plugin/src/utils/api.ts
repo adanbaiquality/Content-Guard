@@ -1,3 +1,2 @@
-export const getApiBaseUrl = () => {
-  return (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8787").replace(/\/$/, "");
-};
+export const getApiBaseUrl = () =>
+  (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8787").replace(/\/$/, "");

@@ -1,7 +1,6 @@
 import { defineConfig } from "nitro/config";
 
 export default defineConfig({
-  serverDir: "./server",
   modules: ["workflow/nitro"],
   runtimeConfig: {
     workflow: {
@@ -9,4 +8,5 @@ export default defineConfig({
       sourcemap: "inline",
     },
   },
+  serverDir: "./server",
 });

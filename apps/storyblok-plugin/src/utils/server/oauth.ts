@@ -1,6 +1,7 @@
-import { authParams } from "@/auth";
-import type { NextApiRequest, NextApiResponse } from "next";
 import { getSessionStore, inferSessionQuery } from "@storyblok/app-extension-auth";
+import type { NextApiRequest, NextApiResponse } from "next";
+
+import { authParams } from "@/auth";
 
 export const getAppSession = async (req: NextApiRequest, res: NextApiResponse) => {
   const sessionStore = getSessionStore(authParams)({

@@ -1,19 +1,20 @@
 import Head from "next/head";
-import { useAppBridge } from "@/hooks";
-import UserInfo from "@/components/UserInfo";
-import Example from "@/components/Example";
 
-type User = {
+import Example from "@/components/Example";
+import UserInfo from "@/components/UserInfo";
+import { useAppBridge } from "@/hooks";
+
+interface User {
   id: number;
   friendly_name: string;
-};
+}
 
-type UserInfo = {
+interface UserInfo {
   user: User;
-};
+}
 
 export default function Home() {
-  const { completed } = useAppBridge({ type: "space-plugin", oauth: true });
+  const { completed } = useAppBridge({ oauth: true, type: "space-plugin" });
 
   return (
     <>

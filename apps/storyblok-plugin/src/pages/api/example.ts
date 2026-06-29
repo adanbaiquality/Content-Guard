@@ -1,13 +1,14 @@
-import { verifyAppBridgeHeader } from "@/utils/server";
 import type { NextApiRequest, NextApiResponse } from "next";
+
+import { verifyAppBridgeHeader } from "@/utils/server";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const verified = await verifyAppBridgeHeader(req);
 
   if (verified.ok) {
-    // perform something with verified app bridge session
+    // Perform something with verified app bridge session
     /*
-      verified.result = {
+      Verified.result = {
         app_id: number;
         space_id: number;
         user_id: number;

@@ -1,5 +1,6 @@
-import { initOauthFlowUrl } from "@/auth";
 import type { NextApiRequest, NextApiResponse } from "next";
+
+import { initOauthFlowUrl } from "@/auth";
 import { getAppSession } from "@/utils/server";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

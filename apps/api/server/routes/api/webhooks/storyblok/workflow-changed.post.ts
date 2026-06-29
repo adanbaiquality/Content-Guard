@@ -1,5 +1,5 @@
 import { start } from "workflow/api";
-import { createError, defineEventHandler, readBody } from "h3";
+import { HTTPError, defineEventHandler, readBody } from "h3";
 import { runStoryblokReviewingAudits } from "../../../../../workflows/storyblok-reviewing-audits.ts";
 import type { StoryblokWorkflowWebhookPayload } from "../../../../audits/index.ts";
 
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const payload = await readBody<StoryblokWorkflowWebhookPayload>(event).catch(() => null);
 
   if (!payload || typeof payload !== "object") {
-    throw createError({ statusCode: 400, statusMessage: "Invalid webhook body." });
+    throw new HTTPError({ message: "Invalid webhook body.", status: 400 });
   }
 
   const workflowState = resolveWorkflowState(payload);
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
   return {
     ok: true,
     processed: true,
-    state: workflowState,
     runId: runReference,
+    state: workflowState,
   };
 });

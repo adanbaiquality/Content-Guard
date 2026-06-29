@@ -1,5 +1,6 @@
-import { getAppSession } from "@/utils/server";
 import type { NextApiRequest, NextApiResponse } from "next";
+
+import { getAppSession } from "@/utils/server";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const appSession = await getAppSession(req, res);
