@@ -921,13 +921,13 @@ export default function ContentGuardPanel() {
                 ))}
               </TabsList>
 
-              <div className="flex w-full justify-center">
+              <div className="w-full">
                 <button
                   type="button"
                   onClick={() => downloadResultsAsXlsx(byCategory)}
-                  className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+                  className="inline-flex w-full items-center justify-center rounded-2xl border border-zinc-300 bg-white px-5 py-2.5 text-lg font-semibold text-slate-800 shadow-sm transition hover:bg-zinc-50 active:scale-[0.99] active:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
                 >
-                  Download XLSX
+                  Download Report
                 </button>
               </div>
             </div>
