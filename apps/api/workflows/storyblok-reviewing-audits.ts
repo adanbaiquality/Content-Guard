@@ -38,10 +38,12 @@ const executeStoryblokReviewingAudits = async (
 
   const browserAudits: AuditResult[] = [];
 
-  const [{ runPreviewA11yAxeAudit }, { runPreviewAFMAudit }] = await Promise.all([
-    import("./preview-a11y-axe.step.ts"),
-    import("./preview-afm.step.ts"),
-  ]);
+  const [{ runPreviewA11yAxeAudit }, { runPreviewAFMAudit }, { runPreviewStyleGuideAudit }] =
+    await Promise.all([
+      import("./preview-a11y-axe.step.ts"),
+      import("./preview-afm.step.ts"),
+      import("./preview-style-guide.step.ts"),
+    ]);
 
   const a11yAudit = await runPreviewA11yAxeAudit(enrichedPayload);
   a11yAudit.step = "preview-a11y-axe";
@@ -50,6 +52,10 @@ const executeStoryblokReviewingAudits = async (
   const afmAudit = await runPreviewAFMAudit(enrichedPayload);
   afmAudit.step = "preview-afm";
   browserAudits.push(afmAudit);
+
+  const styleGuideAudit = await runPreviewStyleGuideAudit(enrichedPayload);
+  styleGuideAudit.step = "preview-style-guide";
+  browserAudits.push(styleGuideAudit);
 
   const audits = [...baseAudits, ...browserAudits];
   const passed = audits.filter((audit) => audit.passed).length;

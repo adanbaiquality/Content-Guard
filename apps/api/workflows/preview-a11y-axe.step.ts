@@ -40,20 +40,12 @@ const validatePreviewUrl = (previewUrl: string | undefined): AuditResult | null 
   return null;
 };
 
-const processViolations = (violations: any[]): Record<string, any> => ({
-  inapplicableCount: 0,
-  incompleteCount: 0,
-  passesCount: 0,
-  violations,
-  violationsCount: violations.length,
-});
-
 export const runPreviewA11yAxeAudit = async (
   payload: StoryblokWorkflowWebhookPayload,
 ): Promise<AuditResult> => {
   "use step";
 
-  const previewUrl = resolvePreviewUrl(payload);
+  const previewUrl = resolvePreviewUrl(payload)
   const validationError = validatePreviewUrl(previewUrl);
 
   if (validationError) {

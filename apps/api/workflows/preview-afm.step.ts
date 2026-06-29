@@ -29,7 +29,7 @@ export async function runPreviewAFMAudit(
 ): Promise<AuditResult> {
   "use step";
 
-  const previewUrl = resolvePreviewUrl(payload);
+  const previewUrl = resolvePreviewUrl(payload)
 
   if (!previewUrl) {
     return {
