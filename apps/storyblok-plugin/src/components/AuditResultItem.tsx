@@ -25,6 +25,18 @@ function getWcagRuleUrl(ruleId: string): string {
   return anchor ? `${WCAG22_QUICKREF_URL}#${anchor}` : WCAG22_QUICKREF_URL;
 }
 
+function getRuleUrl(result: AuditResult): string | null {
+  if (result.ruleUrl) {
+    return result.ruleUrl;
+  }
+
+  if (result.ruleId?.startsWith("WCAG")) {
+    return getWcagRuleUrl(result.ruleId);
+  }
+
+  return null;
+}
+
 export default function AuditResultItem({ result }: AuditResultItemProps) {
   const [copied, setCopied] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -57,6 +69,7 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
   const severityVariant = result.severity === "blocking" ? "destructive" : "warning";
   const SeverityIcon = result.severity === "blocking" ? OctagonAlert : TriangleAlert;
   const severityLabel = result.severity === "blocking" ? "Blocking" : "Warning";
+  const ruleUrl = getRuleUrl(result);
 
   const promptText = buildPrompt(result, context);
 
@@ -74,16 +87,21 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
           <SeverityIcon className="h-3 w-3" />
           {severityLabel}
         </Badge>
-        {result.ruleId && (
+        {result.ruleId && ruleUrl && (
           <a
-            href={getWcagRuleUrl(result.ruleId)}
+            href={ruleUrl}
             target="_blank"
             rel="noreferrer"
             className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600 underline-offset-2 hover:text-zinc-800 hover:underline"
-            title="Open this WCAG 2.2 success criterion"
+            title="Open this official reference"
           >
             {result.ruleId}
           </a>
+        )}
+        {result.ruleId && !ruleUrl && (
+          <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+            {result.ruleId}
+          </span>
         )}
       </div>
 
@@ -152,6 +170,7 @@ function buildPrompt(result: AuditResult, userContext: string): string {
     `- Category: ${result.category.toUpperCase()}`,
     `- Severity: ${result.severity}`,
     result.ruleId ? `- Rule: ${result.ruleId}` : "",
+    result.ruleUrl ? `- Rule source: ${result.ruleUrl}` : "",
     `- Problem: ${result.message}`,
     result.current ? `- Current content: ${result.current}` : "",
     result.suggestion ? `- Suggested replacement: ${result.suggestion}` : "",

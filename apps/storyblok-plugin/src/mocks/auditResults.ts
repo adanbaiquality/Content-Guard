@@ -1,5 +1,8 @@
 import { type AuditResult } from "@/types";
 
+const AFM_LEIDRAAD_HYPO_2026_URL =
+  "https://www.afm.nl/~/profmedia/files/wet-regelgeving/beleidsuitingen/leidraden/leidraad-hypotheekadvisering-herzien-2026.pdf";
+
 export const mockAuditResults: AuditResult[] = [
   // ── A11y ─────────────────────────────────────────────────────────────────
   {
@@ -49,6 +52,8 @@ export const mockAuditResults: AuditResult[] = [
     passed: false,
     category: "afm",
     severity: "blocking",
+    ruleId: "AFM LH-2026 §3 (Het adviestraject)",
+    ruleUrl: `${AFM_LEIDRAAD_HYPO_2026_URL}#page=8`,
     message: "Sentence exceeds the recommended 25-word limit (found 41 words).",
     current:
       '"Our dedicated team of financial advisors will work with you to understand your unique situation and develop a personalised plan that meets all of your specific needs."',
@@ -61,6 +66,8 @@ export const mockAuditResults: AuditResult[] = [
     passed: false,
     category: "afm",
     severity: "warning",
+    ruleId: "AFM LH-2026 §2 (De rol van de adviseur)",
+    ruleUrl: `${AFM_LEIDRAAD_HYPO_2026_URL}#page=4`,
     message: "Passive voice detected — active voice improves clarity for customers.",
     current: '"Your application will be reviewed by our team within 3 business days."',
     suggestion: '"Our team will review your application within 3 business days."',
