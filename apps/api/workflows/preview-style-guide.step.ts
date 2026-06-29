@@ -44,6 +44,9 @@ const complianceResultSchema = z.object({
       excerpt: z.string().nullable().describe("The specific text that violates the guideline, or null when no direct excerpt is available"),
       explanation: z.string().describe("Why the content violates this guideline"),
       guideline: z.string().describe("The guideline that was violated"),
+      severity: z
+        .enum(["critical", "serious", "moderate", "minor"])
+        .describe("Severity classification for the violation"),
     }),
   ),
 });
@@ -118,7 +121,7 @@ const fetchAiBrandingRules = async (
   try {
     const response = await client.get(`spaces/${spaceId}/ai_branding_rules`);
     const raw: unknown = response.data;
-    console.log(`Fetched AI branding rules from Storyblok Management API for space ${spaceId}:`, raw);
+   // console.log(`Fetched AI branding rules from Storyblok Management API for space ${spaceId}:`, raw);
     const parsed = defaultAiBrandingRulesResponseSchema.safeParse(raw);
     if (parsed.success && parsed.data.ai_branding_rule) {
       return parsed.data.ai_branding_rule;
@@ -294,7 +297,9 @@ export const runPreviewStyleGuideAudit = async (
   const { output: result } = await generateText({
     messages: [
       {
-        content: `You are a content compliance auditor. Check whether the following content adheres to each listed style guideline.
+        content: `You are a content compliance auditor.
+
+      Your task is to review the content against every listed style guideline and identify any violations.
 
 ## Style Guidelines
 ${guidelines.map((g, i) => `${i + 1}. ${g}`).join("\n")}
@@ -302,8 +307,29 @@ ${guidelines.map((g, i) => `${i + 1}. ${g}`).join("\n")}
 ## Content to Check
 ${contentText}
 
-Analyze the content carefully against every guideline and report any violations you find.
-For each violation item, always include these fields: guideline, explanation, and excerpt. Use excerpt=null when no direct quote is available.`,
+      ## Instructions
+
+      1. Evaluate every guideline independently.
+      2. Report only genuine violations.
+      3. Do not invent violations or evidence.
+      4. Use the exact text from the content when providing excerpts.
+      5. If a violation cannot be tied to a specific quote, set excerpt to null.
+      6. A single guideline may have multiple violations if warranted.
+      7. If content partially violates a guideline, report the violation and explain why.
+      8. Base findings only on the provided guidelines and content.
+      9. Do not make assumptions about missing context.
+      10. Be strict but fair. Do not report speculative or weak violations.
+
+      For each violation item, always include these fields: guideline, explanation, excerpt, and severity.
+      Set severity to exactly one of: critical, serious, moderate, minor.
+      Include all violations in your analysis list, including minor ones.
+
+      ## Severity Definitions
+
+- critical: explicit contradiction of hard must/never rules with high legal/compliance or severe brand risk.
+- serious: clear violation of important guidance likely to materially harm trust, clarity, or brand integrity.
+- moderate: meaningful issue that should be corrected but with limited immediate impact.
+- minor: small wording/tone/format deviation with low impact.`,
         role: "user",
       },
     ],
@@ -311,21 +337,26 @@ For each violation item, always include these fields: guideline, explanation, an
     output: Output.object({ schema: complianceResultSchema }),
   });
 
+  const violations = result.violations.filter((violation) => violation.severity !== "minor");
+  const hiddenMinorCount = result.violations.length - violations.length;
+  const passed = violations.length === 0;
+
   return {
     audit: "preview-style-guide",
-    message: result.passed
+    message: passed
       ? "Content follows all configured style guidelines."
-      : `Content has ${result.violations.length} style guideline violation(s).`,
+      : `Content has ${violations.length} style guideline violation(s).`,
     meta: {
       guidelines,
+      hiddenMinorCount,
       openaiApiKeyHeader,
       openaiApiVersion,
       openaiBaseUrl,
       model,
       brandingRulesChecked: brandingRules ? 1 : 0,
       summary: result.summary,
-      violations: result.violations,
+      violations,
     },
-    passed: result.passed,
+    passed,
   };
 };
