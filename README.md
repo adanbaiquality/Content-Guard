@@ -86,6 +86,31 @@ Notes:
 - You can inspect traffic via the `-inspect` URL shown in host output.
 - Official command reference: https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/cli-commands
 
+### Known working tunnel commands used in this repo
+
+These are the exact commands that were used successfully in this project session.
+
+1. Verify tunnel metadata and mapped port URL:
+
+```shell
+devtunnel show majestic-lake-8cz1g5j.euw --json
+```
+
+2. Start hosting the existing tunnel ID (port 3000 was already configured):
+
+```shell
+devtunnel host majestic-lake-8cz1g5j.euw
+```
+
+3. The host output exposed these working plugin URLs:
+
+```text
+https://rmjmlk6v.euw.devtunnels.ms:3000
+https://rmjmlk6v-3000.euw.devtunnels.ms
+```
+
+4. Keep this host command running while `pnpm dev:plugin` and `pnpm dev:api` are running.
+
 ## Current API routing notes
 
 - The `Example` frontend component now calls the API using `NEXT_PUBLIC_API_BASE_URL`.
