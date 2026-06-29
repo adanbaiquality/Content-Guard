@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
 import CategorySection from "@/components/AccessibilitySection";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { mockCategorySettingsLinks } from "@/mocks/auditResults";
@@ -468,14 +469,14 @@ function CategoryTabTrigger({
     <TabsTrigger
       value={category}
       className={cn(
-        "inline-flex h-auto w-full items-center justify-between gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
+        "grid h-auto w-full grid-cols-[14px_minmax(0,1fr)_88px_8px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
         "bg-white/50 hover:bg-white data-[state=active]:text-current",
         styles[status],
       )}
     >
       <Image src={CATEGORY_ICONS[category]} alt="" width={14} height={14} className="opacity-75" />
-      <span className="font-bold">{CATEGORY_LABELS[category]}</span>
-      <span className="text-zinc-500">
+      <span className="min-w-0 truncate text-left font-bold">{CATEGORY_LABELS[category]}</span>
+      <span className="text-right tabular-nums text-zinc-500">
         {issueCount} issue{issueCount === 1 ? "" : "s"}
       </span>
       <span className={`h-2 w-2 rounded-full ${dotStyles[status]}`} />
@@ -509,6 +510,43 @@ function ProgressSummary({ audits }: { audits: AuditResult[] }) {
         </div>
       )}
     </div>
+  );
+}
+
+function PanelLoadingSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          <Skeleton className="h-9 rounded-full" />
+          <Skeleton className="h-9 rounded-full" />
+          <Skeleton className="h-9 rounded-full" />
+        </div>
+        <div className="flex w-full justify-center">
+          <Skeleton className="h-8 w-36 rounded-full" />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+function HeaderLoadingSkeleton() {
+  return (
+    <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-4 py-3.5">
+      <Skeleton className="h-7 w-7 rounded-md" />
+      <div className="min-w-0 flex-1">
+        <Skeleton className="h-7 w-48" />
+      </div>
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-3 py-2">
+        <Skeleton className="h-12 w-12 rounded-full" />
+      </div>
+    </header>
   );
 }
 
@@ -561,22 +599,21 @@ export default function ContentGuardPanel() {
 
   return (
     <section className="w-full space-y-5 rounded-2xl border border-[var(--cg-border)] bg-white/80 shadow-lg shadow-zinc-200/40 backdrop-blur-sm">
-      {/* Header */}
-      <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-[linear-gradient(130deg,#ebf8ef_0%,#faf8ec_100%)] px-4 py-3.5">
-        <div>
-          <Image src="/guard-icon.svg" alt="Content Guard" width={28} height={28} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-extrabold tracking-tight text-zinc-900">Content Guard</h1>
-        </div>
-        <ProgressSummary audits={activeAudits} />
-      </header>
-
-      {loading && (
-        <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-          Loading workflow output from API...
-        </p>
+      {loading ? (
+        <HeaderLoadingSkeleton />
+      ) : (
+        <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-[linear-gradient(130deg,#ebf8ef_0%,#faf8ec_100%)] px-4 py-3.5">
+          <div>
+            <Image src="/guard-icon.svg" alt="Content Guard" width={28} height={28} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-extrabold tracking-tight text-zinc-900">Content Guard</h1>
+          </div>
+          <ProgressSummary audits={activeAudits} />
+        </header>
       )}
+
+      {loading && <PanelLoadingSkeleton />}
 
       {!loading && loadError && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -584,42 +621,46 @@ export default function ContentGuardPanel() {
         </p>
       )}
 
-      <Tabs
-        value={activeCategory}
-        onValueChange={(value) => {
-          if (isAuditCategory(value)) {
-            setActiveCategory(value);
-          }
-        }}
-      >
-        {/* Category tabs + export */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-3">
-            {CATEGORIES.map((cat) => (
-              <CategoryTabTrigger key={cat} category={cat} audits={byCategory[cat]} />
-            ))}
-          </TabsList>
+      {!loading && (
+        <>
+          <Tabs
+            value={activeCategory}
+            onValueChange={(value) => {
+              if (isAuditCategory(value)) {
+                setActiveCategory(value);
+              }
+            }}
+          >
+            {/* Category tabs + export */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+              <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-3">
+                {CATEGORIES.map((cat) => (
+                  <CategoryTabTrigger key={cat} category={cat} audits={byCategory[cat]} />
+                ))}
+              </TabsList>
 
-          <div className="flex w-full justify-center">
-            <button
-              type="button"
-              onClick={() => downloadResultsAsXlsx(byCategory)}
-              className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
-            >
-              Download XLSX
-            </button>
+              <div className="flex w-full justify-center">
+                <button
+                  type="button"
+                  onClick={() => downloadResultsAsXlsx(byCategory)}
+                  className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+                >
+                  Download XLSX
+                </button>
+              </div>
+            </div>
+          </Tabs>
+
+          {/* Active category section */}
+          <div className="space-y-5">
+            <CategorySection
+              category={activeCategory}
+              audits={activeAudits}
+              settingsUrl={activeCategory === "brand" ? mockCategorySettingsLinks.brand : undefined}
+            />
           </div>
-        </div>
-      </Tabs>
-
-      {/* Active category section */}
-      <div className="space-y-5">
-        <CategorySection
-          category={activeCategory}
-          audits={activeAudits}
-          settingsUrl={activeCategory === "brand" ? mockCategorySettingsLinks.brand : undefined}
-        />
-      </div>
+        </>
+      )}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Copy, OctagonAlert, TriangleAlert, X } from "lucide-react";
+import { Check, CheckCircle2, Copy, OctagonAlert, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -40,7 +40,7 @@ function getRuleUrl(result: AuditResult): string | null {
 
 export default function AuditResultItem({ result }: AuditResultItemProps) {
   const [copied, setCopied] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [context, setContext] = useState("");
   const ruleUrl = getRuleUrl(result);
 
@@ -71,30 +71,53 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
     );
   }
 
-  if (dismissed) {
-    return (
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 opacity-60">
-        <span className="text-xs text-zinc-500 line-through">{result.message}</span>
-        <button
-          type="button"
-          onClick={() => setDismissed(false)}
-          className="text-xs text-zinc-400 underline hover:text-zinc-600"
-        >
-          Undo
-        </button>
-      </div>
-    );
-  }
-
   const severityVariant = result.severity === "blocking" ? "destructive" : "warning";
   const SeverityIcon = result.severity === "blocking" ? OctagonAlert : TriangleAlert;
   const severityLabel = result.severity === "blocking" ? "Blocking" : "Warning";
   const promptText = buildPrompt(result, context);
 
+  const copyWithFallback = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // Fall through to execCommand fallback.
+    }
+
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "true");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+      document.body.appendChild(textarea);
+
+      textarea.focus();
+      textarea.select();
+
+      const copiedWithCommand = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return copiedWithCommand;
+    } catch {
+      return false;
+    }
+  };
+
   const copyPrompt = async () => {
-    await navigator.clipboard.writeText(promptText);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    setCopyFailed(false);
+
+    const didCopy = await copyWithFallback(promptText);
+    if (didCopy) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+      return;
+    }
+
+    setCopied(false);
+    setCopyFailed(true);
   };
 
   return (
@@ -173,15 +196,12 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
             )}
             {copied ? "Copied!" : "Copy fix-prompt"}
           </button>
-          <button
-            type="button"
-            onClick={() => setDismissed(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-500 shadow-sm hover:bg-zinc-50 active:scale-95"
-          >
-            <X className="h-3.5 w-3.5" />
-            {result.severity === "blocking" ? "Dismiss" : "Mark as seen"}
-          </button>
         </div>
+        {copyFailed && (
+          <p className="text-[11px] text-amber-700">
+            Copy is blocked in this iframe. Select text manually and press Cmd+C.
+          </p>
+        )}
       </div>
     </article>
   );
