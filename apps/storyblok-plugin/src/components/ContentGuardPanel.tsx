@@ -157,7 +157,6 @@ export default function ContentGuardPanel() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-extrabold tracking-tight text-zinc-900">Content Guard</h1>
-          <p className="text-xs text-zinc-600">Content quality checks for Storyblok entries</p>
         </div>
         <ProgressSummary audits={activeAudits} />
       </header>
