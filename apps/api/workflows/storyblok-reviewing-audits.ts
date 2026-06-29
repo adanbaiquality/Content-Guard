@@ -1,11 +1,9 @@
 import {
   type AuditResult,
-  type StoryblokWorkflowWebhookPayload,
+  type StoryblokReviewingInput,
   runReviewingAudits,
 } from "../server/audits/index.ts";
-import { runFetchStoryAudit } from "./fetch-story.step.ts";
-import { runPreviewA11yAxeAudit } from "./preview-a11y-axe.step.ts";
-import { runPreviewAFMAudit } from "./preview-afm.step.ts";
+import { runFetchStoryStep } from "./fetch-story.step.ts";
 import { runResolvePreviewUrlStep } from "./resolve-preview-url.step.ts";
 
 export interface StoryblokReviewingAuditWorkflowResult {
@@ -15,21 +13,76 @@ export interface StoryblokReviewingAuditWorkflowResult {
     total: number;
     passed: number;
     failed: number;
+    steps: Array<{
+      name: string;
+      total: number;
+      passed: number;
+      failed: number;
+      audits: AuditResult[];
+    }>;
   };
 }
 
-export const runStoryblokReviewingAudits = async (
-  payload: StoryblokWorkflowWebhookPayload,
+const executeStoryblokReviewingAudits = async (
+  input: StoryblokReviewingInput,
 ): Promise<StoryblokReviewingAuditWorkflowResult> => {
-  "use workflow";
-
+  console.log("Running Storyblok reviewing audits workflow with input:", input);
+  const payload = await runFetchStoryStep(input);
   const enrichedPayload = await runResolvePreviewUrlStep(payload);
   const baseAudits = await runReviewingAudits(enrichedPayload);
-  const fetchStoryAudit = await runFetchStoryAudit(enrichedPayload);
-  const previewA11yAudit = await runPreviewA11yAxeAudit(enrichedPayload);
-  const previewAFMAudit = await runPreviewAFMAudit(enrichedPayload);
-  const audits = [...baseAudits, fetchStoryAudit, previewA11yAudit, previewAFMAudit];
+  
+  // Tag base audits with their step name
+  baseAudits.forEach(audit => {
+    audit.step = "audits";
+  });
+
+  const browserAuditsEnabled =
+    process.env.CONTENT_GUARD_ENABLE_BROWSER_AUDITS === "1" ||
+    (process.platform !== "win32" && process.env.CONTENT_GUARD_ENABLE_BROWSER_AUDITS !== "0");
+
+  const browserAudits: AuditResult[] = [];
+
+  if (browserAuditsEnabled) {
+    const [{ runPreviewA11yAxeAudit }, { runPreviewAFMAudit }] = await Promise.all([
+      import("./preview-a11y-axe.step.ts"),
+      import("./preview-afm.step.ts"),
+    ]);
+
+    const a11yAudit = await runPreviewA11yAxeAudit(enrichedPayload);
+    a11yAudit.step = "preview-a11y-axe";
+    browserAudits.push(a11yAudit);
+
+    const afmAudit = await runPreviewAFMAudit(enrichedPayload);
+    afmAudit.step = "preview-afm";
+    browserAudits.push(afmAudit);
+  } else {
+    console.warn(
+      "Skipping browser-based preview audits on platform",
+      process.platform,
+      "Set CONTENT_GUARD_ENABLE_BROWSER_AUDITS=1 to force-enable.",
+    );
+  }
+
+  const audits = [...baseAudits, ...browserAudits];
   const passed = audits.filter((audit) => audit.passed).length;
+
+  // Group audits by step for detailed summary
+  const stepMap = new Map<string, AuditResult[]>();
+  audits.forEach(audit => {
+    const stepName = audit.step || "unknown";
+    if (!stepMap.has(stepName)) {
+      stepMap.set(stepName, []);
+    }
+    stepMap.get(stepName)!.push(audit);
+  });
+
+  const steps = Array.from(stepMap.entries()).map(([stepName, stepAudits]) => ({
+    name: stepName,
+    total: stepAudits.length,
+    passed: stepAudits.filter(a => a.passed).length,
+    failed: stepAudits.filter(a => !a.passed).length,
+    audits: stepAudits,
+  }));
 
   return {
     audits,
@@ -38,6 +91,19 @@ export const runStoryblokReviewingAudits = async (
       failed: audits.length - passed,
       passed,
       total: audits.length,
+      steps,
     },
   };
 };
+
+export const runStoryblokReviewingAudits = async (
+  input: StoryblokReviewingInput,
+): Promise<StoryblokReviewingAuditWorkflowResult> => {
+  "use workflow";
+
+  return executeStoryblokReviewingAudits(input);
+};
+
+export const runStoryblokReviewingAuditsInline = async (
+  input: StoryblokReviewingInput,
+): Promise<StoryblokReviewingAuditWorkflowResult> => executeStoryblokReviewingAudits(input);

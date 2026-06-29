@@ -39,7 +39,9 @@ const resolveSpaceId = (payload: StoryblokWorkflowWebhookPayload): string | numb
   payload.space_id;
 
 const resolveEnvironment = (payload: StoryblokWorkflowWebhookPayload): string | undefined =>
-  asNonEmptyString(payload.environment) ?? asNonEmptyString(payload.environment_name);
+  asNonEmptyString(payload.environment) ??
+  asNonEmptyString(payload.environment_name) ??
+  asNonEmptyString(process.env.STORYBLOK_ENVIRONMENT);
 
 const resolveInputUrl = (payload: StoryblokWorkflowWebhookPayload): string | undefined =>
   asNonEmptyString(payload.url);
@@ -163,14 +165,47 @@ const findMatchingEnvironment = (
   });
 };
 
+const findDefaultOrFirstEnvironment = (
+  environments: z.output<typeof managementEnvironmentSchema>[],
+): z.output<typeof managementEnvironmentSchema> | undefined => {
+  const defaultEnvironment = environments.find((environment) => {
+    const currentName = resolveEnvironmentName(environment);
+    return currentName === "default";
+  });
+
+  if (defaultEnvironment !== undefined) {
+    return defaultEnvironment;
+  }
+
+  return environments[0];
+};
+
 const resolvePreviewBaseUrl = (
   space: z.output<typeof managementSpaceResponseSchema>["space"],
-  environmentName: string,
+  environmentName?: string,
 ): string | undefined => {
   const environments = space.environments ?? [];
-  const matchingEnvironment = findMatchingEnvironment(environments, environmentName);
-  if (matchingEnvironment !== undefined) {
-    const baseUrl = resolveEnvironmentBaseUrl(matchingEnvironment);
+
+  if (environmentName !== undefined) {
+    const matchingEnvironment = findMatchingEnvironment(environments, environmentName);
+    if (matchingEnvironment !== undefined) {
+      const baseUrl = resolveEnvironmentBaseUrl(matchingEnvironment);
+      if (baseUrl !== undefined) {
+        return baseUrl;
+      }
+    }
+  }
+
+  const defaultOrFirstEnvironment = findDefaultOrFirstEnvironment(environments);
+  if (defaultOrFirstEnvironment !== undefined) {
+    const baseUrl = resolveEnvironmentBaseUrl(defaultOrFirstEnvironment);
+    if (baseUrl !== undefined) {
+      return baseUrl;
+    }
+  }
+
+  for (const environment of environments) {
+    const baseUrl = resolveEnvironmentBaseUrl(environment);
     if (baseUrl !== undefined) {
       return baseUrl;
     }
@@ -181,14 +216,14 @@ const resolvePreviewBaseUrl = (
 
 const validateRequiredInputs = (
   payload: StoryblokWorkflowWebhookPayload,
-): { environment: string; spaceId: string | number; urlPath: string } => {
+): { environment?: string; spaceId: string | number; urlPath: string } => {
   const environment = resolveEnvironment(payload);
   const spaceId = resolveSpaceId(payload);
   const urlPath = resolveInputUrl(payload);
 
-  if (environment === undefined || spaceId === undefined || urlPath === undefined) {
+  if (spaceId === undefined || urlPath === undefined) {
     throw new HTTPError({
-      message: "Missing required fields: spaceId, url, and environment.",
+      message: "Missing required fields: spaceId and url.",
       status: HTTP_STATUS_BAD_REQUEST,
     });
   }

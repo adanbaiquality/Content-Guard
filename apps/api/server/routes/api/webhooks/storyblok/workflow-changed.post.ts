@@ -1,236 +1,110 @@
 import { HTTPError, defineEventHandler, readBody } from "h3";
+import { z } from "zod";
 import { start } from "workflow/api";
 
-import type { StoryblokWorkflowWebhookPayload } from "../../../../audits/index.ts";
 import logger from "../../../../utils/logger.ts";
-import { runStoryblokReviewingAudits } from "../../../../../workflows/storyblok-reviewing-audits.ts";
+import {
+  runStoryblokReviewingAudits,
+  runStoryblokReviewingAuditsInline,
+} from "../../../../../workflows/storyblok-reviewing-audits.ts";
 
-const REVIEWING_STATE = "reviewing";
-const MIN_STRING_LENGTH = 1;
 const HTTP_STATUS_BAD_REQUEST = 400;
-const asNonEmptyString = (value: unknown): string | undefined => {
-  if (typeof value !== "string") {
-    return undefined;
+const LOCAL_WORKFLOW_RUN_ID_PREFIX = "local-run";
+
+const WebhookBodySchema = z.object({
+  id: z.union([
+    z.number().finite(),
+    z.string().trim().min(1),
+  ]).transform((val) => (typeof val === "string" ? val.trim() : val)),
+  spaceid: z.union([
+    z.number().finite(),
+    z.string().trim().min(1),
+  ]).transform((val) => (typeof val === "string" ? val.trim() : val)),
+}).strict();
+
+const toErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
   }
 
-  const trimmed = value.trim();
-  if (trimmed.length >= MIN_STRING_LENGTH) {
-    return trimmed;
-  }
-  return undefined;
-};
-
-const normalizeIdentifier = (value: unknown): string | number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) {
+      return message;
+    }
   }
 
-  const normalizedString = asNonEmptyString(value);
-  return normalizedString;
-};
-
-const resolveWorkflowState = (payload: StoryblokWorkflowWebhookPayload): string => {
-  const raw = payload.workflow?.state ?? payload.workflow_state ?? payload.state;
-  if (typeof raw === "string") {
-    return raw.trim().toLowerCase();
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
   }
-  return "";
-};
-
-const normalizeWebhookPayload = (
-  input: Record<string, unknown>,
-): StoryblokWorkflowWebhookPayload => {
-  let story: StoryblokWorkflowWebhookPayload["story"] | undefined;
-  if (input.story && typeof input.story === "object") {
-    story = input.story as StoryblokWorkflowWebhookPayload["story"];
-  }
-
-  let workflow: StoryblokWorkflowWebhookPayload["workflow"] | undefined;
-  if (input.workflow && typeof input.workflow === "object") {
-    workflow = input.workflow as StoryblokWorkflowWebhookPayload["workflow"];
-  }
-
-  const payload: StoryblokWorkflowWebhookPayload = {
-    ...input,
-    environment:
-      asNonEmptyString(input.environment) ??
-      asNonEmptyString(input.environment_name) ??
-      asNonEmptyString(input.env),
-    environment_name:
-      asNonEmptyString(input.environment_name) ??
-      asNonEmptyString(input.environment) ??
-      asNonEmptyString(input.env),
-    space_id:
-      normalizeIdentifier(input.space_id) ??
-      normalizeIdentifier(input.spaceId) ??
-      normalizeIdentifier((input.space as { id?: unknown } | undefined)?.id),
-    story,
-    story_id:
-      normalizeIdentifier(input.story_id) ??
-      normalizeIdentifier(input.storyId) ??
-      normalizeIdentifier(story?.id),
-    url:
-      asNonEmptyString(input.url) ??
-      asNonEmptyString(story?.full_slug) ??
-      asNonEmptyString(story?.slug),
-    workflow,
-    workflow_state: asNonEmptyString(input.workflow_state) ?? asNonEmptyString(workflow?.state),
-  };
-
-  return payload;
-};
-
-const createWorkflowPayload = (
-  input: StoryblokWorkflowWebhookPayload,
-): StoryblokWorkflowWebhookPayload => ({
-  ...input,
-  environment: input.environment ?? input.environment_name,
-  environment_name: input.environment_name ?? input.environment,
-  space_id: input.space_id,
-  state: REVIEWING_STATE,
-  story: {
-    ...input.story,
-    id: input.story?.id ?? input.story_id,
-  },
-  story_id: input.story_id ?? input.story?.id,
-  url: input.url,
-  workflow: {
-    ...input.workflow,
-    state: REVIEWING_STATE,
-  },
-  workflow_state: REVIEWING_STATE,
-});
-
-const resolveRunReference = (run: unknown): string | undefined => {
-  const castRun = run as { id?: string; runId?: string; token?: string };
-  return castRun.id ?? castRun.runId ?? castRun.token;
-};
-
-const validateWebhookBody = (body: unknown): Record<string, unknown> => {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    logger.debug({ body }, "Invalid webhook body structure");
-    throw new HTTPError({ message: "Invalid webhook body.", status: HTTP_STATUS_BAD_REQUEST });
-  }
-
-  logger.debug({ body }, "Webhook body parsed successfully");
-  return body as Record<string, unknown>;
-};
-
-const validateRequiredFields = (input: StoryblokWorkflowWebhookPayload): void => {
-  if (input.story_id === undefined && input.story?.id === undefined) {
-    logger.debug("Missing required field: storyId");
-    throw new HTTPError({
-      message: "Missing required field: storyId.",
-      status: HTTP_STATUS_BAD_REQUEST,
-    });
-  }
-
-  if (input.space_id === undefined || input.url === undefined || input.environment === undefined) {
-    logger.debug(
-      {
-        hasEnvironment: input.environment !== undefined,
-        hasSpaceId: input.space_id !== undefined,
-        hasUrl: input.url !== undefined,
-      },
-      "Missing required fields for reviewing state",
-    );
-    throw new HTTPError({
-      message: "Missing required fields for reviewing state: spaceId, url, and environment.",
-      status: HTTP_STATUS_BAD_REQUEST,
-    });
-  }
-};
-
-const logPayloadNormalization = (input: StoryblokWorkflowWebhookPayload): void => {
-  logger.debug(
-    {
-      environment: input.environment,
-      spaceId: input.space_id,
-      storyId: input.story_id,
-      url: input.url,
-    },
-    "Webhook payload normalized",
-  );
-};
-
-const logWorkflowStart = (payload: StoryblokWorkflowWebhookPayload): void => {
-  logger.debug(
-    {
-      environment: payload.environment,
-      spaceId: payload.space_id,
-      state: payload.workflow_state,
-      storyId: payload.story_id,
-    },
-    "Starting storyblok reviewing audits workflow",
-  );
-};
-
-const logWorkflowSuccess = (
-  runReference: string | undefined,
-  payload: StoryblokWorkflowWebhookPayload,
-): void => {
-  logger.debug({ runId: runReference, storyId: payload.story_id }, "Workflow started successfully");
-};
-
-const processReviewingWorkflow = async (
-  input: StoryblokWorkflowWebhookPayload,
-): Promise<{
-  ok: boolean;
-  processed: boolean;
-  runId?: string;
-  spaceId?: string | number;
-  state: string;
-  storyId?: string | number;
-}> => {
-  validateRequiredFields(input);
-  logger.debug("All required validations passed, creating workflow payload");
-
-  const payload = createWorkflowPayload(input);
-  logWorkflowStart(payload);
-
-  const run = await start(runStoryblokReviewingAudits, [payload]);
-  const runReference = resolveRunReference(run);
-  logWorkflowSuccess(runReference, payload);
-
-  return {
-    ok: true,
-    processed: true,
-    runId: runReference,
-    spaceId: payload.space_id,
-    state: REVIEWING_STATE,
-    storyId: payload.story_id,
-  };
-};
-
-const handleNonReviewingState = (
-  workflowState: string,
-): { ok: boolean; processed: boolean; reason: string; state?: string } => {
-  logger.debug(
-    { expectedState: REVIEWING_STATE, workflowState },
-    "Workflow state does not match reviewing state, skipping processing",
-  );
-  return {
-    ok: true,
-    processed: false,
-    reason: "State is not reviewing.",
-    state: workflowState || undefined,
-  };
 };
 
 export default defineEventHandler(async (event) => {
   logger.debug("Incoming webhook request received");
 
   const body = await readBody<unknown>(event).catch(() => undefined);
-  const validatedBody = validateWebhookBody(body);
-  const input = normalizeWebhookPayload(validatedBody);
-  logPayloadNormalization(input);
 
-  const workflowState = resolveWorkflowState(input);
-  logger.debug({ workflowState }, "Workflow state resolved");
+  let validatedInput: z.infer<typeof WebhookBodySchema>;
 
-  if (workflowState !== REVIEWING_STATE) {
-    return handleNonReviewingState(workflowState);
+  try {
+    validatedInput = WebhookBodySchema.parse(body);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const fieldErrors = error.issues
+        .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+        .join("; ");
+      throw new HTTPError({
+        message: `Invalid webhook body: ${fieldErrors}`,
+        status: HTTP_STATUS_BAD_REQUEST,
+      });
+    }
+    throw new HTTPError({
+      message: "Invalid webhook body.",
+      status: HTTP_STATUS_BAD_REQUEST,
+    });
   }
 
-  return processReviewingWorkflow(input);
+  const { id: storyId, spaceid: spaceId } = validatedInput;
+
+  logger.debug({ spaceId, storyId }, "Starting storyblok reviewing audits workflow");
+
+  const shouldRunInlineInDev =
+    process.platform === "win32" &&
+    process.env.NODE_ENV !== "production" &&
+    process.env.CONTENT_GUARD_FORCE_WORKFLOW_ENGINE !== "1";
+
+  if (shouldRunInlineInDev) {
+    const runId = `${LOCAL_WORKFLOW_RUN_ID_PREFIX}-${Date.now()}`;
+
+    void runStoryblokReviewingAuditsInline({ spaceId, storyId })
+      .then((result) => {
+        logger.debug({ runId, summary: result.summary }, "Inline workflow completed");
+        return result;
+      })
+      .catch((error) => {
+        logger.error(
+          {
+            error: toErrorMessage(error),
+            runId,
+          },
+          "Inline workflow failed",
+        );
+      });
+
+    logger.warn(
+      { runId },
+      "Running workflow inline on Windows dev to avoid workflow engine crash. Set CONTENT_GUARD_FORCE_WORKFLOW_ENGINE=1 to force engine mode.",
+    );
+
+    return { ok: true, runId, spaceId, storyId };
+  }
+
+  const run = await start(runStoryblokReviewingAudits, [{ spaceId, storyId }]);
+  const runId = (run as { id?: string; runId?: string }).id ?? (run as { id?: string; runId?: string }).runId;
+
+  logger.debug({ runId, storyId }, "Workflow started successfully");
+
+  return { ok: true, runId, spaceId, storyId };
 });

@@ -60,13 +60,16 @@ export const runPreviewA11yAxeAudit = async (
     return validationError;
   }
 
-  const browser = await chromium.launch({ headless: true });
+  const safePreviewUrl = previewUrl!;
+
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 
   try {
+    browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    await page.goto(previewUrl, {
+    await page.goto(safePreviewUrl, {
       timeout: 45_000,
       waitUntil: "networkidle",
     });
@@ -110,11 +113,11 @@ export const runPreviewA11yAxeAudit = async (
       message: "Failed to run Playwright + axe audit on preview URL.",
       meta: {
         error: error instanceof Error ? error.message : String(error),
-        previewUrl,
+        previewUrl: safePreviewUrl,
       },
       passed: false,
     };
   } finally {
-    await browser.close();
+    await browser?.close();
   }
 };

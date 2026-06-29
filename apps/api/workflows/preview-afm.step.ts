@@ -60,9 +60,10 @@ export async function runPreviewAFMAudit(
     };
   }
 
-  const browser = await chromium.launch({ headless: true });
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 
   try {
+    browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -101,7 +102,7 @@ export async function runPreviewAFMAudit(
       passed: false,
     };
   } finally {
-    await browser.close();
+    await browser?.close();
   }
 }
 

@@ -1,3 +1,8 @@
+export interface StoryblokReviewingInput {
+  storyId: number | string;
+  spaceId: number | string;
+}
+
 export interface StoryblokWorkflowWebhookPayload {
   story_id?: number | string;
   story_version?: number | string;
@@ -37,6 +42,7 @@ export interface AuditResult {
   passed: boolean;
   message: string;
   meta?: Record<string, unknown>;
+  step?: string;
 }
 
 export interface Audit {

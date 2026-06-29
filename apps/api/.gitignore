@@ -1,1 +1,3 @@
 .swc/
+test-results/
+playwright-report/
