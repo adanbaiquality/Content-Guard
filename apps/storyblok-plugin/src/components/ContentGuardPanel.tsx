@@ -768,11 +768,11 @@ function CategoryTabTrigger({
   const status = getCategoryStatus(audits);
 
   const styles = {
-    pass: "border-emerald-200 text-emerald-700 data-[state=active]:bg-emerald-50",
-    critical: "border-red-200 text-red-700 data-[state=active]:bg-red-50",
-    serious: "border-orange-200 text-orange-700 data-[state=active]:bg-orange-50",
-    moderate: "border-amber-200 text-amber-700 data-[state=active]:bg-amber-50",
-    minor: "border-sky-200 text-sky-700 data-[state=active]:bg-sky-50",
+    pass: "border-emerald-200 text-zinc-900 data-[state=active]:bg-emerald-50",
+    critical: "border-red-200 text-zinc-900 data-[state=active]:bg-red-50",
+    serious: "border-orange-200 text-zinc-900 data-[state=active]:bg-orange-50",
+    moderate: "border-amber-200 text-zinc-900 data-[state=active]:bg-amber-50",
+    minor: "border-sky-200 text-zinc-900 data-[state=active]:bg-sky-50",
   };
 
   const dotStyles = {
