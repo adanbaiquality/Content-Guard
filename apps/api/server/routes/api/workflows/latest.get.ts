@@ -1,4 +1,4 @@
-import { HTTPError, defineEventHandler, getQuery, getRequestURL, sendRedirect } from "h3";
+import { HTTPError, defineEventHandler, getQuery, sendRedirect } from "h3";
 
 import { getLatestRunId } from "../../../utils/workflow-run-cache.ts";
 
@@ -33,8 +33,7 @@ export default defineEventHandler((event) => {
     });
   }
 
-  const { origin } = getRequestURL(event);
-  const location = `${origin}/api/workflows/${runId}/output`;
+  const location = `/api/workflows/${runId}/output`;
 
   return sendRedirect(event, location, 302);
 });

@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
 import CategorySection from "@/components/AccessibilitySection";
@@ -60,6 +60,11 @@ type WorkflowRunOutputResponse = {
   output: WorkflowOutput | undefined;
   runId: string;
   status: WorkflowRunStatus;
+  timestamps?: {
+    completedAt?: string;
+    createdAt: string;
+    startedAt?: string;
+  };
   workflowName: string;
 };
 
@@ -73,6 +78,12 @@ const WORKFLOW_TRIGGER_LOCK_KEY = "content_guard:workflow_trigger_lock";
 const HTTP_STATUS_OK = 200;
 const OUTPUT_POLL_DELAY_MS = 1200;
 const OUTPUT_POLL_MAX_ATTEMPTS = 25;
+
+type LoadedAuditsResult = {
+  audits: AuditResult[];
+  lastRunAt?: string;
+  runId: string;
+};
 
 function getWcagRuleFromTags(tags: string[]): string | undefined {
   const wcagTag = tags.find((tag) => /^wcag\d{3}$/.test(tag));
@@ -206,9 +217,14 @@ function resolveSlug() {
 
 async function requestStoryContext(): Promise<StoryContext> {
   const params = new URLSearchParams(window.location.search);
-  const spaceIdFromQuery = params.get("space_id") ?? undefined;
+  const spaceIdFromQuery =
+    params.get("space_id") ?? params.get("_storyblok_tk[space_id]") ?? undefined;
   const storyIdFromQuery =
-    params.get("story_id") ?? params.get("storyId") ?? params.get("id") ?? undefined;
+    params.get("story_id") ??
+    params.get("storyId") ??
+    params.get("id") ??
+    params.get("_storyblok") ??
+    undefined;
 
   if (storyIdFromQuery) {
     return { spaceId: spaceIdFromQuery, storyId: storyIdFromQuery };
@@ -268,6 +284,33 @@ async function wait(ms: number) {
   });
 }
 
+function resolveLastRunAt(response: WorkflowRunOutputResponse | undefined): string | undefined {
+  if (!response?.timestamps) {
+    return undefined;
+  }
+
+  return response.timestamps.completedAt || response.timestamps.startedAt || response.timestamps.createdAt;
+}
+
+function formatLastRunAt(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 class WorkflowRunNotFoundError extends Error {
   constructor(runId: string) {
     super(`Workflow run '${runId}' was not found.`);
@@ -284,7 +327,14 @@ function resolveRunIdFromUrl(): string | undefined {
   return runId.length > 0 ? runId : undefined;
 }
 
-async function pollWorkflowOutput(runId: string): Promise<WorkflowOutput | undefined> {
+function resolveTimestampFromUrl(): string | undefined {
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get("timestamp") || params.get("_storyblok_tk[timestamp]") || "";
+  const timestamp = fromQuery.trim();
+  return timestamp.length > 0 ? timestamp : undefined;
+}
+
+async function pollWorkflowOutput(runId: string): Promise<WorkflowRunOutputResponse> {
   const apiBaseUrl = getApiBaseUrl();
 
   for (let attempt = 0; attempt < OUTPUT_POLL_MAX_ATTEMPTS; attempt += 1) {
@@ -299,7 +349,7 @@ async function pollWorkflowOutput(runId: string): Promise<WorkflowOutput | undef
 
     const json = (await response.json()) as WorkflowRunOutputResponse;
     if (json.status === "completed") {
-      return json.output;
+      return json;
     }
 
     if (json.status === "failed" || json.status === "cancelled") {
@@ -335,6 +385,7 @@ async function triggerWorkflowOnce(context: StoryContext): Promise<string> {
       body: JSON.stringify({
         id: context.storyId,
         spaceid: context.spaceId,
+        timestamp: resolveTimestampFromUrl(),
       }),
       headers: {
         "content-type": "application/json",
@@ -357,20 +408,119 @@ async function triggerWorkflowOnce(context: StoryContext): Promise<string> {
   }
 }
 
-async function fetchAuditsFromExistingRun(): Promise<{ audits: AuditResult[]; runId: string }> {
+async function fetchLatestWorkflowOutput(
+  context: StoryContext,
+): Promise<WorkflowRunOutputResponse | undefined> {
+  if (!context.storyId || !context.spaceId) {
+    return undefined;
+  }
+
+  const apiBaseUrl = getApiBaseUrl();
+  const params = new URLSearchParams({
+    id: context.storyId,
+    spaceid: context.spaceId,
+  });
+
+  const response = await fetch(`${apiBaseUrl}/api/workflows/latest?${params.toString()}`);
+
+  if (response.status === 404) {
+    return undefined;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to resolve latest workflow run (${response.status}).`);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return (await response.json()) as WorkflowRunOutputResponse;
+  }
+
+  const html = await response.text();
+  const runIdMatch = html.match(/\/api\/workflows\/([^/]+)\/output/i);
+  const runId = runIdMatch?.[1];
+
+  if (!runId) {
+    throw new Error("Latest workflow response did not include a runId.");
+  }
+
+  const outputResponse = await fetch(`${apiBaseUrl}/api/workflows/${runId}/output`);
+  if (!outputResponse.ok) {
+    throw new Error(`Failed to fetch latest workflow output (${outputResponse.status}).`);
+  }
+
+  return (await outputResponse.json()) as WorkflowRunOutputResponse;
+}
+
+async function fetchAuditsFromExistingRun(): Promise<LoadedAuditsResult> {
   const runIdFromUrl = resolveRunIdFromUrl();
   const runIdFromSession = sessionStorage.getItem(LAST_WORKFLOW_RUN_ID_KEY) || undefined;
 
   const context = await requestStoryContext();
+  const hasStoryContext = Boolean(context.storyId && context.spaceId);
+
+  let latestOutput: WorkflowRunOutputResponse | undefined;
+  try {
+    latestOutput = await fetchLatestWorkflowOutput(context);
+  } catch {
+    // API may briefly restart in dev. Fall back to fresh trigger below.
+    latestOutput = undefined;
+  }
+
+  if (latestOutput?.runId) {
+    const latestRunId = latestOutput.runId;
+
+    if (latestOutput.status === "completed") {
+      sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, latestRunId);
+      return {
+        audits: mapWorkflowOutputToAudits(latestOutput.output),
+        lastRunAt: resolveLastRunAt(latestOutput),
+        runId: latestRunId,
+      };
+    }
+
+    if (latestOutput.status === "failed" || latestOutput.status === "cancelled") {
+      throw new Error(
+        `Workflow run '${latestRunId}' ended with status '${latestOutput.status}'. Check API logs for details.`,
+      );
+    }
+
+    try {
+      const polledResponse = await pollWorkflowOutput(latestRunId);
+      sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, latestRunId);
+      return {
+        audits: mapWorkflowOutputToAudits(polledResponse.output),
+        lastRunAt: resolveLastRunAt(polledResponse),
+        runId: latestRunId,
+      };
+    } catch {
+      // If latest run lookup fails transiently, recover with a fresh run below.
+    }
+  }
+
+  // If latest cache is empty (for example after API restart), avoid reusing stale
+  // URL/session run ids and generate a fresh run for the current story context.
+  if (hasStoryContext) {
+    const freshRunId = await triggerWorkflowOnce(context);
+    sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, freshRunId);
+
+    const response = await pollWorkflowOutput(freshRunId);
+    return {
+      audits: mapWorkflowOutputToAudits(response.output),
+      lastRunAt: resolveLastRunAt(response),
+      runId: freshRunId,
+    };
+  }
 
   const candidateRunIds = [...new Set([runIdFromUrl, runIdFromSession].filter(Boolean))] as string[];
 
   for (const runId of candidateRunIds) {
     try {
-      const output = await pollWorkflowOutput(runId);
+      const response = await pollWorkflowOutput(runId);
       sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, runId);
       return {
-        audits: mapWorkflowOutputToAudits(output),
+        audits: mapWorkflowOutputToAudits(response.output),
+        lastRunAt: resolveLastRunAt(response),
         runId,
       };
     } catch (error) {
@@ -388,9 +538,10 @@ async function fetchAuditsFromExistingRun(): Promise<{ audits: AuditResult[]; ru
   const freshRunId = await triggerWorkflowOnce(context);
   sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, freshRunId);
 
-  const output = await pollWorkflowOutput(freshRunId);
+  const response = await pollWorkflowOutput(freshRunId);
   return {
-    audits: mapWorkflowOutputToAudits(output),
+    audits: mapWorkflowOutputToAudits(response.output),
+    lastRunAt: resolveLastRunAt(response),
     runId: freshRunId,
   };
 }
@@ -540,8 +691,9 @@ function HeaderLoadingSkeleton() {
   return (
     <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-4 py-3.5">
       <Skeleton className="h-7 w-7 rounded-md" />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 space-y-1.5">
         <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-3 w-40" />
       </div>
       <div className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-3 py-2">
         <Skeleton className="h-12 w-12 rounded-full" />
@@ -553,8 +705,13 @@ function HeaderLoadingSkeleton() {
 export default function ContentGuardPanel() {
   const [activeCategory, setActiveCategory] = useState<AuditCategory>("a11y");
   const [audits, setAudits] = useState<AuditResult[]>([]);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [lastRunAt, setLastRunAt] = useState<string | null>(null);
+  const [isRunTooltipPinned, setIsRunTooltipPinned] = useState(false);
+  const [isRunTooltipHovered, setIsRunTooltipHovered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const runTooltipRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -567,10 +724,14 @@ export default function ContentGuardPanel() {
         const result = await fetchAuditsFromExistingRun();
         if (!cancelled) {
           setAudits(result.audits);
+          setLastRunId(result.runId);
+          setLastRunAt(result.lastRunAt ?? null);
         }
       } catch (error) {
         if (!cancelled) {
           setAudits([]);
+          setLastRunId(null);
+          setLastRunAt(null);
           setLoadError(error instanceof Error ? error.message : "Failed to load live audits.");
         }
       } finally {
@@ -587,6 +748,32 @@ export default function ContentGuardPanel() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isRunTooltipPinned) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!runTooltipRef.current?.contains(event.target as Node)) {
+        setIsRunTooltipPinned(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsRunTooltipPinned(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isRunTooltipPinned]);
+
   const byCategory = useMemo(
     () =>
       Object.fromEntries(
@@ -596,6 +783,8 @@ export default function ContentGuardPanel() {
   );
 
   const activeAudits = byCategory[activeCategory];
+  const formattedLastRunAt = formatLastRunAt(lastRunAt ?? undefined);
+  const shouldShowRunTooltip = (isRunTooltipHovered || isRunTooltipPinned) && Boolean(lastRunId);
 
   return (
     <section className="w-full space-y-5 rounded-2xl border border-[var(--cg-border)] bg-white/80 shadow-lg shadow-zinc-200/40 backdrop-blur-sm">
@@ -608,6 +797,28 @@ export default function ContentGuardPanel() {
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-extrabold tracking-tight text-zinc-900">Content Guard</h1>
+            {formattedLastRunAt && (
+              <div
+                ref={runTooltipRef}
+                className="relative inline-flex"
+                onMouseEnter={() => setIsRunTooltipHovered(true)}
+                onMouseLeave={() => setIsRunTooltipHovered(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsRunTooltipPinned((current) => !current)}
+                  className="text-[11px] font-medium text-zinc-500 underline decoration-dotted underline-offset-2 hover:text-zinc-700"
+                >
+                  Last run: {formattedLastRunAt}
+                </button>
+
+                {shouldShowRunTooltip && (
+                  <div className="absolute top-full left-0 z-10 mt-1 max-w-[280px] rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-[10px] text-zinc-600 shadow-md">
+                    Run ID: {lastRunId}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <ProgressSummary audits={activeAudits} />
         </header>
