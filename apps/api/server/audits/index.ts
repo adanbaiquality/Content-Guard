@@ -1,11 +1,24 @@
 export type StoryblokWorkflowWebhookPayload = {
   story_id?: number | string;
+  story_version?: number | string;
+  version?: number | string;
+  preview_url?: string;
+  previewUrl?: string;
+  preview?: {
+    url?: string;
+  };
+  urls?: {
+    preview?: string;
+  };
   story?: {
     id?: number | string;
+    version?: number | string;
     uuid?: string;
     name?: string;
     slug?: string;
     full_slug?: string;
+    preview_url?: string;
+    previewUrl?: string;
     content?: unknown;
   };
   workflow?: {
@@ -30,6 +43,31 @@ export type Audit = {
   name: string;
   run: (payload: StoryblokWorkflowWebhookPayload) => Promise<AuditResult>;
 };
+
+function asNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+export function resolvePreviewUrl(payload: StoryblokWorkflowWebhookPayload): string | null {
+  return (
+    asNonEmptyString(payload.preview_url) ??
+    asNonEmptyString(payload.previewUrl) ??
+    asNonEmptyString(payload.preview?.url) ??
+    asNonEmptyString(payload.urls?.preview) ??
+    asNonEmptyString(payload.story?.preview_url) ??
+    asNonEmptyString(payload.story?.previewUrl) ??
+    null
+  );
+}
+
+export function isValidPreviewUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 const hasStoryIdentifierAudit: Audit = {
   name: "has-story-identifier",
@@ -71,7 +109,10 @@ const hasStoryMetadataAudit: Audit = {
   },
 };
 
-export const reviewingAudits: Audit[] = [hasStoryIdentifierAudit, hasStoryMetadataAudit];
+export const reviewingAudits: Audit[] = [
+  hasStoryIdentifierAudit,
+  hasStoryMetadataAudit,
+];
 
 export async function runReviewingAudits(
   payload: StoryblokWorkflowWebhookPayload,

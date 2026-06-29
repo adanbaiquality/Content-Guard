@@ -10,6 +10,7 @@
     "build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
     "build:api": "pnpm --filter @content-guard/api build",
     "lint": "pnpm --filter @content-guard/storyblok-plugin lint",
+    "typecheck": "pnpm --filter @content-guard/storyblok-plugin typecheck && pnpm --filter @content-guard/api typecheck",
     "format": "oxfmt",
     "format:check": "oxfmt --check"
   },

@@ -1,7 +1,7 @@
 import { start } from "workflow/api";
 import { createError, defineEventHandler, readBody } from "h3";
-import { runStoryblokReviewingAudits } from "../../../../../workflows/storyblok-reviewing-audits";
-import type { StoryblokWorkflowWebhookPayload } from "../../../../audits";
+import { runStoryblokReviewingAudits } from "../../../../../workflows/storyblok-reviewing-audits.ts";
+import type { StoryblokWorkflowWebhookPayload } from "../../../../audits/index.ts";
 
 function resolveWorkflowState(payload: StoryblokWorkflowWebhookPayload): string {
   const raw = payload.workflow?.state ?? payload.workflow_state ?? payload.state;
