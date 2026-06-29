@@ -25,8 +25,41 @@ const severityRank: Record<AuditResult["severity"], number> = {
   info: 1,
 };
 
-function sortBySeverityHighToLow(audits: AuditResult[]) {
+function getWcagTuple(ruleId?: string): [number, number, number] | null {
+  if (!ruleId) {
+    return null;
+  }
+
+  const match = ruleId.match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) {
+    return null;
+  }
+
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareWcagTuple(a: [number, number, number], b: [number, number, number]) {
+  if (a[0] !== b[0]) return a[0] - b[0];
+  if (a[1] !== b[1]) return a[1] - b[1];
+  return a[2] - b[2];
+}
+
+function sortAudits(audits: AuditResult[]) {
   return [...audits].sort((a, b) => {
+    const aWcag = getWcagTuple(a.ruleId);
+    const bWcag = getWcagTuple(b.ruleId);
+
+    if (aWcag && bWcag) {
+      const wcagDelta = compareWcagTuple(aWcag, bWcag);
+      if (wcagDelta !== 0) {
+        return wcagDelta;
+      }
+    } else if (aWcag && !bWcag) {
+      return -1;
+    } else if (!aWcag && bWcag) {
+      return 1;
+    }
+
     const rankDelta = severityRank[b.severity] - severityRank[a.severity];
     if (rankDelta !== 0) {
       return rankDelta;
@@ -38,8 +71,8 @@ function sortBySeverityHighToLow(audits: AuditResult[]) {
 
 export default function CategorySection({ category, audits, settingsUrl }: CategorySectionProps) {
   const { passedText } = CATEGORY_META[category];
-  const failing = sortBySeverityHighToLow(audits.filter((a) => !a.passed));
-  const passing = sortBySeverityHighToLow(audits.filter((a) => a.passed));
+  const failing = sortAudits(audits.filter((a) => !a.passed));
+  const passing = sortAudits(audits.filter((a) => a.passed));
 
   return (
     <section className="space-y-2" id={`section-${category}`}>

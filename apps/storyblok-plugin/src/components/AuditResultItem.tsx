@@ -41,12 +41,31 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
   const [copied, setCopied] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [context, setContext] = useState("");
+  const ruleUrl = getRuleUrl(result);
 
   if (result.passed) {
     return (
-      <div className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2">
-        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-        <span className="text-xs font-medium text-emerald-800">{result.message}</span>
+      <div className="flex items-center justify-between gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+          <span className="text-xs font-medium text-emerald-800">{result.message}</span>
+        </div>
+        {result.ruleId && ruleUrl && (
+          <a
+            href={ruleUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700 underline-offset-2 hover:text-emerald-900 hover:underline"
+            title="Open this official reference"
+          >
+            {result.ruleId}
+          </a>
+        )}
+        {result.ruleId && !ruleUrl && (
+          <span className="shrink-0 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+            {result.ruleId}
+          </span>
+        )}
       </div>
     );
   }
@@ -69,8 +88,6 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
   const severityVariant = result.severity === "blocking" ? "destructive" : "warning";
   const SeverityIcon = result.severity === "blocking" ? OctagonAlert : TriangleAlert;
   const severityLabel = result.severity === "blocking" ? "Blocking" : "Warning";
-  const ruleUrl = getRuleUrl(result);
-
   const promptText = buildPrompt(result, context);
 
   const copyPrompt = async () => {
