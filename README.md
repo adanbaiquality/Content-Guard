@@ -50,6 +50,42 @@ pnpm dev:api
 pnpm build
 ```
 
+## Expose local port 3000 with Dev Tunnel
+
+If you want to share your local plugin UI (`http://localhost:3000`) with Storyblok webhooks or teammates, you can create your own Dev Tunnel.
+
+1. Install and sign in to the Dev Tunnel CLI (if needed), then confirm it works:
+
+```shell
+devtunnel --version
+```
+
+2. Create a new tunnel and keep the generated tunnel ID:
+
+```shell
+devtunnel create
+```
+
+3. Add port `3000` to that tunnel:
+
+```shell
+devtunnel port create <your-tunnel-id> -p 3000 --protocol http
+```
+
+4. Start hosting so requests are forwarded to your local app:
+
+```shell
+devtunnel host <your-tunnel-id>
+```
+
+5. Copy one of the printed public URLs (for example, `https://<name>-3000.euw.devtunnels.ms`) and use it where needed.
+
+Notes:
+
+- Keep the hosting terminal running; stopping it closes the tunnel.
+- You can inspect traffic via the `-inspect` URL shown in host output.
+- Official command reference: https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/cli-commands
+
 ## Current API routing notes
 
 - The `Example` frontend component now calls the API using `NEXT_PUBLIC_API_BASE_URL`.
