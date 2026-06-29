@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import CategorySection from "@/components/AccessibilitySection";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { mockAuditResults } from "@/mocks/auditResults";
+import { mockAuditResults, mockCategorySettingsLinks } from "@/mocks/auditResults";
 import { type AuditCategory, type AuditResult } from "@/types";
 
 const CATEGORIES: AuditCategory[] = ["a11y", "afm", "brand"];
@@ -190,7 +190,11 @@ export default function ContentGuardPanel() {
 
       {/* Active category section */}
       <div className="space-y-5">
-        <CategorySection category={activeCategory} audits={activeAudits} />
+        <CategorySection
+          category={activeCategory}
+          audits={activeAudits}
+          settingsUrl={activeCategory === "brand" ? mockCategorySettingsLinks.brand : undefined}
+        />
       </div>
     </section>
   );

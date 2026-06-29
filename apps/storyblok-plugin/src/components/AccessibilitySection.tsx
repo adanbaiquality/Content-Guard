@@ -16,6 +16,7 @@ const CATEGORY_META: Record<AuditCategory, { passedText: string }> = {
 type CategorySectionProps = {
   category: AuditCategory;
   audits: AuditResult[];
+  settingsUrl?: string;
 };
 
 const severityRank: Record<AuditResult["severity"], number> = {
@@ -35,13 +36,26 @@ function sortBySeverityHighToLow(audits: AuditResult[]) {
   });
 }
 
-export default function CategorySection({ category, audits }: CategorySectionProps) {
+export default function CategorySection({ category, audits, settingsUrl }: CategorySectionProps) {
   const { passedText } = CATEGORY_META[category];
   const failing = sortBySeverityHighToLow(audits.filter((a) => !a.passed));
   const passing = sortBySeverityHighToLow(audits.filter((a) => a.passed));
 
   return (
     <section className="space-y-2" id={`section-${category}`}>
+      {settingsUrl ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <a
+            href={settingsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold underline decoration-blue-400 underline-offset-2 hover:decoration-blue-700"
+          >
+            Open Brand Settings in Storyblok
+          </a>
+        </div>
+      ) : null}
+
       {audits.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zinc-200 bg-white px-4 py-5 text-sm text-zinc-500">
           {passedText}

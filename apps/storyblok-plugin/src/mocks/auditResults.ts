@@ -3,6 +3,11 @@ import { type AuditResult } from "@/types";
 const AFM_LEIDRAAD_HYPO_2026_URL =
   "https://www.afm.nl/~/profmedia/files/wet-regelgeving/beleidsuitingen/leidraden/leidraad-hypotheekadvisering-herzien-2026.pdf";
 
+export const mockCategorySettingsLinks = {
+  brand:
+    "https://app.storyblok.com/#/me/spaces/293515764469721/apps/192670910305875",
+} as const;
+
 export const mockAuditResults: AuditResult[] = [
   // ── A11y ─────────────────────────────────────────────────────────────────
   {
