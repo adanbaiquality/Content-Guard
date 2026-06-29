@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { type Page, chromium } from "playwright";
 import {
   type AuditResult,
   type StoryblokWorkflowWebhookPayload,
@@ -12,6 +12,16 @@ interface AFMViolation {
   description: string;
   count: number;
   details?: string[];
+}
+
+interface AFMWarningAnalysis {
+  details: string[];
+  hasWarning: boolean;
+  hasWarningText: boolean;
+  heightRatio: number | null;
+  topPositionRatio: number | null;
+  warningKind: "image" | "none" | "text";
+  widthRatio: number | null;
 }
 
 export async function runPreviewAFMAudit(
@@ -95,229 +105,291 @@ export async function runPreviewAFMAudit(
   }
 }
 
-async function performAFMChecks(page: any): Promise<AFMViolation[]> {
+async function performAFMChecks(page: Page): Promise<AFMViolation[]> {
   const violations: AFMViolation[] = [];
 
-  // Check 1: Color Contrast
-  const contrastIssues = await checkColorContrast(page);
-  if (contrastIssues.length > 0) {
+  // Check 1: Presence and wording of AFM kredietwaarschuwing
+  const warningPresenceIssues = await checkAFMWarningPresence(page);
+  if (warningPresenceIssues.length > 0) {
     violations.push({
-      count: contrastIssues.length,
-      description: "Text does not meet minimum color contrast ratio (4.5:1 for normal text).",
-      details: contrastIssues.slice(0, 5),
+      count: warningPresenceIssues.length,
+      description:
+        'Required kredietwaarschuwing is missing or cannot be verified (expected: "Let op! Geld lenen kost geld" with AFM warning symbol).',
+      details: warningPresenceIssues.slice(0, 5),
       severity: "error",
-      type: "color-contrast",
+      type: "missing-kredietwaarschuwing",
     });
   }
 
-  // Check 2: Image Alt Text
-  const missingAltText = await checkImageAltText(page);
-  if (missingAltText.length > 0) {
+  // Check 2: Positioning and size for website use (Art. 2:2 Nrgfo)
+  const positioningIssues = await checkAFMPositioningAndSize(page);
+  if (positioningIssues.length > 0) {
     violations.push({
-      count: missingAltText.length,
-      description: "Images are missing alternative text.",
-      details: missingAltText.slice(0, 5),
+      count: positioningIssues.length,
+      description:
+        "Kredietwaarschuwing placement/size deviates from AFM guidance for internet ads (centered top, full width, ~10% height).",
+      details: positioningIssues.slice(0, 5),
       severity: "error",
-      type: "missing-alt-text",
+      type: "kredietwaarschuwing-position-size",
     });
   }
 
-  // Check 3: Form Labels
-  const missingLabels = await checkFormLabels(page);
-  if (missingLabels.length > 0) {
+  // Check 3: Warning remains visible on page (always visible requirement)
+  const visibilityIssues = await checkAFMVisibilityOnScroll(page);
+  if (visibilityIssues.length > 0) {
     violations.push({
-      count: missingLabels.length,
-      description: "Form inputs are missing associated labels.",
-      details: missingLabels.slice(0, 5),
-      severity: "error",
-      type: "missing-form-labels",
-    });
-  }
-
-  // Check 4: Heading Structure
-  const headingIssues = await checkHeadingStructure(page);
-  if (headingIssues.length > 0) {
-    violations.push({
-      count: headingIssues.length,
-      description: "Heading hierarchy is not sequential.",
-      details: headingIssues,
+      count: visibilityIssues.length,
+      description:
+        "Kredietwaarschuwing may not remain visible during browsing (AFM requires warning on each web page containing the ad).",
+      details: visibilityIssues.slice(0, 5),
       severity: "warning",
-      type: "heading-structure",
+      type: "kredietwaarschuwing-visibility",
     });
   }
 
-  // Check 5: Keyboard Navigation
-  const keyboardIssues = await checkKeyboardNavigation(page);
-  if (keyboardIssues.length > 0) {
+  // Check 4: Source hint (AFM-provided material)
+  const sourceIssues = await checkAFMSourceHints(page);
+  if (sourceIssues.length > 0) {
     violations.push({
-      count: keyboardIssues.length,
-      description: "Interactive elements may not be keyboard accessible.",
-      details: keyboardIssues.slice(0, 5),
+      count: sourceIssues.length,
+      description:
+        "Could not identify clear AFM kredietwaarschuwing source/material hints. Manual review recommended.",
+      details: sourceIssues.slice(0, 5),
       severity: "warning",
-      type: "keyboard-navigation",
+      type: "kredietwaarschuwing-source",
     });
   }
 
   return violations;
 }
 
-async function checkColorContrast(page: any): Promise<string[]> {
-  const issues: string[] = [];
-  try {
-    const contrastResults = await page.evaluate(() => {
-      const textElements = document.querySelectorAll("p, span, a, button, label, li");
-      const violations: string[] = [];
+async function analyzeAFMWarning(page: Page): Promise<AFMWarningAnalysis> {
+  return page.evaluate(() => {
+    const { body } = document;
+    if (!body) {
+      return {
+        details: ["No <body> element found for AFM warning analysis."],
+        hasWarning: false,
+        hasWarningText: false,
+        heightRatio: null,
+        topPositionRatio: null,
+        warningKind: "none" as const,
+        widthRatio: null,
+      };
+    }
 
-      textElements.forEach((el: any, index: number) => {
-        if (index > 20) {
-          return;
-        } // Limit checks
-        const style = window.getComputedStyle(el);
-        const bgColor = style.backgroundColor;
-        const { color } = style;
+    const warningTextRegex = /let\s*op!?\s*geld\s*lenen\s*kost\s*geld/i;
+    const keywordRegex = /kredietwaarschuwing|lenen\s*kost\s*geld|let\s*op/i;
 
-        // Simple heuristic check - in production, use a proper contrast calculator
-        if (bgColor === "rgba(0, 0, 0, 0)" || bgColor === "transparent") {
-          return;
-        }
+    const textNodes = [
+      ...document.querySelectorAll<HTMLElement>("p, span, div, strong, em, h1, h2, h3, h4, h5, h6"),
+    ];
 
-        // Mark potential low contrast elements for manual review
-        if ((color.includes("128") || color.includes("200")) && bgColor.includes("255")) {
-          violations.push(`Element at index ${index}: potential low contrast`);
-        }
-      });
+    let textCandidate: HTMLElement | null = null;
+    for (const el of textNodes) {
+      const text = (el.textContent ?? "").trim();
+      if (text.length === 0) {
+        continue;
+      }
+      if (warningTextRegex.test(text)) {
+        textCandidate = el;
+        break;
+      }
+    }
 
-      return violations;
-    });
-    issues.push(...contrastResults);
-  } catch {
-    // Continue with other checks
-  }
-  return issues;
+    const imageLikeNodes = [...document.querySelectorAll<HTMLElement>("img, svg, picture")];
+    let imageCandidate: HTMLElement | null = null;
+
+    for (const el of imageLikeNodes) {
+      const attrs = [
+        el.getAttribute("src") ?? "",
+        el.getAttribute("alt") ?? "",
+        el.getAttribute("title") ?? "",
+        el.getAttribute("aria-label") ?? "",
+        el.id ?? "",
+        el.className ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      if (keywordRegex.test(attrs)) {
+        imageCandidate = el;
+        break;
+      }
+    }
+
+    const warningElement = textCandidate ?? imageCandidate;
+    const hasWarningText = warningTextRegex.test(body.textContent || "");
+
+    if (!warningElement) {
+      return {
+        details: [
+          'No AFM kredietwaarschuwing element detected (expected warning "Let op! Geld lenen kost geld" and warning symbol).',
+        ],
+        hasWarning: false,
+        hasWarningText,
+        heightRatio: null,
+        topPositionRatio: null,
+        warningKind: "none" as const,
+        widthRatio: null,
+      };
+    }
+
+    warningElement.setAttribute("data-afm-audit-target", "true");
+
+    const rect = warningElement.getBoundingClientRect();
+    const viewportWidth = Math.max(window.innerWidth, 1);
+    const viewportHeight = Math.max(window.innerHeight, 1);
+
+    const widthRatio = rect.width / viewportWidth;
+    const heightRatio = rect.height / viewportHeight;
+    const topPositionRatio = rect.top / viewportHeight;
+
+    return {
+      details: [
+        `Detected warning candidate (${textCandidate ? "text" : "image"}) at top=${Math.round(rect.top)}px, width=${Math.round(rect.width)}px, height=${Math.round(rect.height)}px.`,
+      ],
+      hasWarning: true,
+      hasWarningText,
+      heightRatio,
+      topPositionRatio,
+      warningKind: textCandidate ? ("text" as const) : ("image" as const),
+      widthRatio,
+    };
+  });
 }
 
-async function checkImageAltText(page: any): Promise<string[]> {
+async function checkAFMWarningPresence(page: Page): Promise<string[]> {
   const issues: string[] = [];
   try {
-    const missingAlt = await page.evaluate(() => {
-      const images = document.querySelectorAll("img");
-      const violations: string[] = [];
+    const analysis = await analyzeAFMWarning(page);
 
-      images.forEach((img: any, index: number) => {
-        if (!img.alt || img.alt.trim() === "") {
-          const src = img.src || "unknown";
-          violations.push(
-            `Image at index ${index} (src: ${src.substring(0, 50)}) missing alt text`,
-          );
-        }
-      });
+    if (!analysis.hasWarning) {
+      issues.push(...analysis.details);
+    }
 
-      return violations;
-    });
-    issues.push(...missingAlt);
-  } catch {
-    // Continue with other checks
-  }
-  return issues;
-}
-
-async function checkFormLabels(page: any): Promise<string[]> {
-  const issues: string[] = [];
-  try {
-    const missingLabels = await page.evaluate(() => {
-      const inputs = document.querySelectorAll("input, textarea, select");
-      const violations: string[] = [];
-
-      inputs.forEach((input: any, index: number) => {
-        const { id } = input;
-        const ariaLabel = input.getAttribute("aria-label");
-        const ariaLabelledBy = input.getAttribute("aria-labelledby");
-
-        if (!ariaLabel && !ariaLabelledBy) {
-          if (id) {
-            const label = document.querySelector(`label[for="${id}"]`);
-            if (!label) {
-              violations.push(
-                `${input.tagName} at index ${index} (id: ${id}) has no associated label`,
-              );
-            }
-          } else {
-            violations.push(
-              `${input.tagName} at index ${index} has no label, aria-label, or aria-labelledby`,
-            );
-          }
-        }
-      });
-
-      return violations;
-    });
-    issues.push(...missingLabels);
-  } catch {
-    // Continue with other checks
-  }
-  return issues;
-}
-
-async function checkHeadingStructure(page: any): Promise<string[]> {
-  const issues: string[] = [];
-  try {
-    const headingIssues = await page.evaluate(() => {
-      const headings = [...document.querySelectorAll("h1, h2, h3, h4, h5, h6")];
-      const violations: string[] = [];
-
-      let lastLevel = 0;
-      headings.forEach((heading: any) => {
-        const level = parseInt(heading.tagName[1]);
-        if (lastLevel > 0 && level > lastLevel + 1) {
-          violations.push(
-            `Heading hierarchy skip: ${heading.tagName} after h${lastLevel}. Text: "${heading.textContent?.substring(0, 50)}"`,
-          );
-        }
-        lastLevel = level;
-      });
-
-      return violations;
-    });
-    issues.push(...headingIssues);
-  } catch {
-    // Continue with other checks
-  }
-  return issues;
-}
-
-async function checkKeyboardNavigation(page: any): Promise<string[]> {
-  const issues: string[] = [];
-  try {
-    const keyboardIssues = await page.evaluate(() => {
-      const violations: string[] = [];
-      const interactiveElements = document.querySelectorAll(
-        "button, a, input, select, textarea, [role='button']",
+    if (analysis.hasWarning && !analysis.hasWarningText) {
+      issues.push(
+        'Exact waarschuwingstekst "Let op! Geld lenen kost geld" not found as selectable text. If warning is image-only this may still be valid, but should be manually verified against AFM material.',
       );
+    }
+  } catch {
+    issues.push("Unable to verify AFM warning presence due to DOM evaluation error.");
+  }
+  return issues;
+}
 
-      interactiveElements.forEach((el: any, index: number) => {
-        if (index > 15) {
-          return;
-        } // Limit checks
+async function checkAFMPositioningAndSize(page: Page): Promise<string[]> {
+  const issues: string[] = [];
+  try {
+    const analysis = await analyzeAFMWarning(page);
+    if (!analysis.hasWarning) {
+      return issues;
+    }
 
-        const tabindex = el.getAttribute("tabindex");
-        const isNaturallyFocusable = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA"].includes(
-          el.tagName,
-        );
+    if (analysis.topPositionRatio !== null && analysis.topPositionRatio > 0.25) {
+      issues.push(
+        `Warning appears too low on page (top position ratio: ${analysis.topPositionRatio.toFixed(2)}; expected near top for internet ads).`,
+      );
+    }
 
-        if (!isNaturallyFocusable) {
-          if (!tabindex || tabindex < 0) {
-            violations.push(
-              `${el.tagName} at index ${index} with role="button" may not be keyboard accessible (no positive tabindex)`,
-            );
-          }
-        }
+    if (analysis.widthRatio !== null && analysis.widthRatio < 0.85) {
+      issues.push(
+        `Warning width appears too small (width ratio: ${analysis.widthRatio.toFixed(2)}; expected approximately full width).`,
+      );
+    }
+
+    if (analysis.heightRatio !== null && analysis.heightRatio < 0.08) {
+      issues.push(
+        `Warning height appears below expected prominence (height ratio: ${analysis.heightRatio.toFixed(2)}; AFM guidance targets at least 10% of ad height).`,
+      );
+    }
+  } catch {
+    issues.push("Unable to verify AFM warning positioning/size due to DOM evaluation error.");
+  }
+  return issues;
+}
+
+async function checkAFMVisibilityOnScroll(page: Page): Promise<string[]> {
+  const issues: string[] = [];
+  try {
+    await analyzeAFMWarning(page);
+
+    const before = await page.evaluate(() => {
+      const target = document.querySelector<HTMLElement>("[data-afm-audit-target='true']");
+      if (!target) {
+        return { found: false, inViewport: false };
+      }
+
+      const rect = target.getBoundingClientRect();
+      const inViewport = rect.top >= 0 && rect.bottom <= window.innerHeight;
+      return { found: true, inViewport };
+    });
+
+    if (!before.found) {
+      return issues;
+    }
+
+    await page.evaluate(() => {
+      window.scrollTo({ behavior: "instant", top: Math.max(document.body.scrollHeight * 0.6, 1) });
+    });
+
+    const after = await page.evaluate(() => {
+      const target = document.querySelector<HTMLElement>("[data-afm-audit-target='true']");
+      if (!target) {
+        return { inViewport: false };
+      }
+      const rect = target.getBoundingClientRect();
+      return { inViewport: rect.top >= 0 && rect.bottom <= window.innerHeight };
+    });
+
+    await page.evaluate(() => {
+      window.scrollTo({ behavior: "instant", top: 0 });
+      const target = document.querySelector<HTMLElement>("[data-afm-audit-target='true']");
+      target?.removeAttribute("data-afm-audit-target");
+    });
+
+    if (!after.inViewport) {
+      issues.push(
+        "Detected warning is not continuously visible after scrolling. Review whether warning remains visible where required.",
+      );
+    }
+  } catch {
+    issues.push("Unable to verify AFM warning visibility during scrolling.");
+  }
+  return issues;
+}
+
+async function checkAFMSourceHints(page: Page): Promise<string[]> {
+  const issues: string[] = [];
+  try {
+    const sourceHints = await page.evaluate(() => {
+      const hints: string[] = [];
+      const images = [...document.querySelectorAll<HTMLImageElement>("img")];
+
+      const matching = images.filter((img) => {
+        const attrs = [img.src, img.alt, img.title, img.className, img.id].join(" ").toLowerCase();
+        return /afm|kredietwaarschuwing|lenen\s*kost\s*geld/.test(attrs);
       });
 
-      return violations;
+      if (matching.length === 0) {
+        hints.push(
+          "No image source/metadata hint found for AFM kredietwaarschuwing assets (afm/kredietwaarschuwing/lenen-kost-geld).",
+        );
+      }
+
+      const hasDirectText = /let\s*op!?\s*geld\s*lenen\s*kost\s*geld/i.test(
+        document.body?.textContent ?? "",
+      );
+      if (!hasDirectText && matching.length === 0) {
+        hints.push("Could not detect either exact warning text or clear AFM image asset hint.");
+      }
+
+      return hints;
     });
-    issues.push(...keyboardIssues);
+    issues.push(...sourceHints);
   } catch {
-    // Continue with other checks
+    issues.push("Unable to evaluate AFM source hints for warning assets.");
   }
   return issues;
 }

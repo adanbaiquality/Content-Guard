@@ -2,12 +2,15 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 import { getAppSession } from "@/utils/server";
 
+const HTTP_STATUS_UNAUTHORIZED = 401;
+const HTTP_STATUS_OK = 200;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const appSession = await getAppSession(req, res);
   if (!appSession) {
-    return res.status(401).end();
+    return res.status(HTTP_STATUS_UNAUTHORIZED).end();
   }
-  return res.status(200).json(await fetchUserInfo(appSession.accessToken));
+  return res.status(HTTP_STATUS_OK).json(await fetchUserInfo(appSession.accessToken));
 }
 
 const fetchUserInfo = async (accessToken: string) => {
@@ -27,5 +30,5 @@ const fetchUserInfo = async (accessToken: string) => {
     console.error("Failed to fetch user information:", error);
   }
 
-  return null;
+  return undefined;
 };

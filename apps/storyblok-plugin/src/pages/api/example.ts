@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 import { verifyAppBridgeHeader } from "@/utils/server";
 
+const HTTP_STATUS_OK = 200;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const verified = await verifyAppBridgeHeader(req);
 
@@ -18,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     */
   }
 
-  return res.status(200).json({
+  return res.status(HTTP_STATUS_OK).json({
     verified: verified.ok,
   });
 }

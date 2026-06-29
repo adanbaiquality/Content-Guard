@@ -1,1 +1,1 @@
-export * from "./appBridge";
+export type * from "./appBridge";

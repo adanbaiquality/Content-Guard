@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+// eslint-disable-next-line sort-imports
 import type {
   AppBridgeSession,
   BeginOAuthMessagePayload,
@@ -9,6 +10,7 @@ import type {
   PostMessageAction,
   ValidateMessagePayload,
 } from "@/types";
+// eslint-disable-next-line sort-imports
 import {
   APP_BRIDGE_ORIGIN,
   KEY_PARENT_HOST,
@@ -82,7 +84,7 @@ const useAppBridgeAuth = ({
   const [error, setError] = useState<unknown>();
 
   const init = async () => {
-    const isInIframe = window.top !== window.self;
+    const isInIframe = window.top !== globalThis.self;
 
     if (!isInIframe) {
       setStatus("error");
@@ -120,7 +122,10 @@ const useAppBridgeAuth = ({
     }
   };
 
-  const createValidateMessagePayload: CreateValidateMessagePayload = ({ type: pluginType, slug }) => {
+  const createValidateMessagePayload: CreateValidateMessagePayload = ({
+    type: pluginType,
+    slug,
+  }) => {
     const payload: ValidateMessagePayload = {
       action: getPostMessageAction(pluginType),
       event: "validate",
@@ -206,7 +211,7 @@ const useOAuth = ({ type }: { type: PluginType }) => {
     if (initOAuth) {
       sendBeginOAuthMessageToParent(response.redirectTo);
     } else {
-      window.location.href = response.redirectTo;
+      globalThis.location.href = response.redirectTo;
     }
   };
 
@@ -254,8 +259,8 @@ export const useAppBridge = ({ type, oauth }: { type: PluginType; oauth: boolean
     : appBridgeAuthStatus === "authenticated";
 
   useEffect(() => {
-    initAppBridgeAuth();
-  }, [type, oauth]);
+    void initAppBridgeAuth();
+  }, [initAppBridgeAuth, oauth, type]);
 
   return {
     appBridgeAuth: appBridgeAuthStatus,

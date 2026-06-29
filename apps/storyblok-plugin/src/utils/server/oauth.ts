@@ -1,3 +1,4 @@
+// eslint-disable-next-line sort-imports
 import { getSessionStore, inferSessionQuery } from "@storyblok/app-extension-auth";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -13,5 +14,6 @@ export const getAppSession = async (req: NextApiRequest, res: NextApiResponse) =
   if (!appSessionQuery) {
     return;
   }
-  return await sessionStore.get(appSessionQuery);
+  await sessionStore.get(appSessionQuery);
+  return;
 };

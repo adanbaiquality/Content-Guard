@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
+// eslint-disable-next-line sort-imports
 import { getApiBaseUrl } from "@/utils/api";
+// eslint-disable-next-line sort-imports
 import { APP_BRIDGE_TOKEN_HEADER_KEY, KEY_TOKEN } from "@/utils/const";
 
 export default function Example() {
@@ -18,8 +20,12 @@ export default function Example() {
       const json = await response.json();
       setTestInfo(json);
     };
-    fetchTestInfo();
+    void fetchTestInfo();
   }, []);
 
-  return <pre>App Bridge session is {testInfo?.verified ? "verified" : "not verified"}</pre>;
+  let status = "not verified";
+  if (testInfo?.verified) {
+    status = "verified";
+  }
+  return <pre>App Bridge session is {status}</pre>;
 }

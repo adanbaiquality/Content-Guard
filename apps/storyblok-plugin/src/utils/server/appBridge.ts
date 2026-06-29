@@ -1,6 +1,7 @@
 import jwt, { type VerifyCallback } from "jsonwebtoken";
 import type { NextApiRequest } from "next";
 
+// eslint-disable-next-line sort-imports
 import type { AppBridgeSession, VerifyResponse } from "@/types";
 
 import { APP_BRIDGE_TOKEN_HEADER_KEY } from "../const";
@@ -22,10 +23,15 @@ export const verifyAppBridgeToken = async (token: string): Promise<VerifyRespons
   }
 };
 
-async function verifyToken(token: string, secret: string): Promise<AppBridgeSession> {
-  return new Promise((resolve, reject) => {
-    const verifyCallback: VerifyCallback = (err, decoded) =>
-      err ? reject(err) : resolve(decoded as AppBridgeSession);
+// eslint-disable-next-line no-new-promise, promise/no-new
+const verifyToken = async (token: string, secret: string): Promise<AppBridgeSession> =>
+  new Promise((resolve, reject) => {
+    const verifyCallback: VerifyCallback = (err, decoded) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(decoded as AppBridgeSession);
+      }
+    };
     jwt.verify(token, secret, verifyCallback);
   });
-}
