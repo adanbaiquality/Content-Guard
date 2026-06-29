@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
 import CategorySection from "@/components/AccessibilitySection";
@@ -431,7 +431,25 @@ async function fetchLatestWorkflowOutput(
     throw new Error(`Failed to resolve latest workflow run (${response.status}).`);
   }
 
-  return (await response.json()) as WorkflowRunOutputResponse;
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return (await response.json()) as WorkflowRunOutputResponse;
+  }
+
+  const html = await response.text();
+  const runIdMatch = html.match(/\/api\/workflows\/([^/]+)\/output/i);
+  const runId = runIdMatch?.[1];
+
+  if (!runId) {
+    throw new Error("Latest workflow response did not include a runId.");
+  }
+
+  const outputResponse = await fetch(`${apiBaseUrl}/api/workflows/${runId}/output`);
+  if (!outputResponse.ok) {
+    throw new Error(`Failed to fetch latest workflow output (${outputResponse.status}).`);
+  }
+
+  return (await outputResponse.json()) as WorkflowRunOutputResponse;
 }
 
 async function fetchAuditsFromExistingRun(): Promise<LoadedAuditsResult> {
@@ -439,8 +457,16 @@ async function fetchAuditsFromExistingRun(): Promise<LoadedAuditsResult> {
   const runIdFromSession = sessionStorage.getItem(LAST_WORKFLOW_RUN_ID_KEY) || undefined;
 
   const context = await requestStoryContext();
+  const hasStoryContext = Boolean(context.storyId && context.spaceId);
 
-  const latestOutput = await fetchLatestWorkflowOutput(context);
+  let latestOutput: WorkflowRunOutputResponse | undefined;
+  try {
+    latestOutput = await fetchLatestWorkflowOutput(context);
+  } catch {
+    // API may briefly restart in dev. Fall back to fresh trigger below.
+    latestOutput = undefined;
+  }
+
   if (latestOutput?.runId) {
     const latestRunId = latestOutput.runId;
 
@@ -459,12 +485,30 @@ async function fetchAuditsFromExistingRun(): Promise<LoadedAuditsResult> {
       );
     }
 
-    const polledResponse = await pollWorkflowOutput(latestRunId);
-    sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, latestRunId);
+    try {
+      const polledResponse = await pollWorkflowOutput(latestRunId);
+      sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, latestRunId);
+      return {
+        audits: mapWorkflowOutputToAudits(polledResponse.output),
+        lastRunAt: resolveLastRunAt(polledResponse),
+        runId: latestRunId,
+      };
+    } catch {
+      // If latest run lookup fails transiently, recover with a fresh run below.
+    }
+  }
+
+  // If latest cache is empty (for example after API restart), avoid reusing stale
+  // URL/session run ids and generate a fresh run for the current story context.
+  if (hasStoryContext) {
+    const freshRunId = await triggerWorkflowOnce(context);
+    sessionStorage.setItem(LAST_WORKFLOW_RUN_ID_KEY, freshRunId);
+
+    const response = await pollWorkflowOutput(freshRunId);
     return {
-      audits: mapWorkflowOutputToAudits(polledResponse.output),
-      lastRunAt: resolveLastRunAt(polledResponse),
-      runId: latestRunId,
+      audits: mapWorkflowOutputToAudits(response.output),
+      lastRunAt: resolveLastRunAt(response),
+      runId: freshRunId,
     };
   }
 
@@ -661,9 +705,13 @@ function HeaderLoadingSkeleton() {
 export default function ContentGuardPanel() {
   const [activeCategory, setActiveCategory] = useState<AuditCategory>("a11y");
   const [audits, setAudits] = useState<AuditResult[]>([]);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
+  const [isRunTooltipPinned, setIsRunTooltipPinned] = useState(false);
+  const [isRunTooltipHovered, setIsRunTooltipHovered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const runTooltipRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -676,11 +724,13 @@ export default function ContentGuardPanel() {
         const result = await fetchAuditsFromExistingRun();
         if (!cancelled) {
           setAudits(result.audits);
+          setLastRunId(result.runId);
           setLastRunAt(result.lastRunAt ?? null);
         }
       } catch (error) {
         if (!cancelled) {
           setAudits([]);
+          setLastRunId(null);
           setLastRunAt(null);
           setLoadError(error instanceof Error ? error.message : "Failed to load live audits.");
         }
@@ -698,6 +748,32 @@ export default function ContentGuardPanel() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isRunTooltipPinned) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!runTooltipRef.current?.contains(event.target as Node)) {
+        setIsRunTooltipPinned(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsRunTooltipPinned(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isRunTooltipPinned]);
+
   const byCategory = useMemo(
     () =>
       Object.fromEntries(
@@ -708,6 +784,7 @@ export default function ContentGuardPanel() {
 
   const activeAudits = byCategory[activeCategory];
   const formattedLastRunAt = formatLastRunAt(lastRunAt ?? undefined);
+  const shouldShowRunTooltip = (isRunTooltipHovered || isRunTooltipPinned) && Boolean(lastRunId);
 
   return (
     <section className="w-full space-y-5 rounded-2xl border border-[var(--cg-border)] bg-white/80 shadow-lg shadow-zinc-200/40 backdrop-blur-sm">
@@ -721,7 +798,26 @@ export default function ContentGuardPanel() {
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-extrabold tracking-tight text-zinc-900">Content Guard</h1>
             {formattedLastRunAt && (
-              <p className="text-[11px] font-medium text-zinc-500">Last run: {formattedLastRunAt}</p>
+              <div
+                ref={runTooltipRef}
+                className="relative inline-flex"
+                onMouseEnter={() => setIsRunTooltipHovered(true)}
+                onMouseLeave={() => setIsRunTooltipHovered(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsRunTooltipPinned((current) => !current)}
+                  className="text-[11px] font-medium text-zinc-500 underline decoration-dotted underline-offset-2 hover:text-zinc-700"
+                >
+                  Last run: {formattedLastRunAt}
+                </button>
+
+                {shouldShowRunTooltip && (
+                  <div className="absolute top-full left-0 z-10 mt-1 max-w-[280px] rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-[10px] text-zinc-600 shadow-md">
+                    Run ID: {lastRunId}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <ProgressSummary audits={activeAudits} />

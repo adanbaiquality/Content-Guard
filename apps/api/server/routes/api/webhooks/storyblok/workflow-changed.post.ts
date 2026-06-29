@@ -60,8 +60,9 @@ const DEFAULT_WORKFLOW_NAME =
   runStoryblokReviewingAuditsInline.name ||
   "workflow//./workflows/storyblok-reviewing-audits//runStoryblokReviewingAudits";
 
-const isWindowsDev = process.platform === "win32" && process.env.NODE_ENV !== "production";
-const shouldUseWorkflowEngine = !isWindowsDev || process.env.CONTENT_GUARD_FORCE_WORKFLOW_ENGINE === "1";
+const isDevelopment = process.env.NODE_ENV !== "production";
+const shouldUseWorkflowEngine =
+  !isDevelopment || process.env.CONTENT_GUARD_FORCE_WORKFLOW_ENGINE === "1";
 
 const toIsoString = (value: Date | undefined): string | undefined => value?.toISOString();
 
