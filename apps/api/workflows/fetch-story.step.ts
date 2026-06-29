@@ -4,6 +4,7 @@ import type {
   StoryblokReviewingInput,
   StoryblokWorkflowWebhookPayload,
 } from "../server/audits/index.ts";
+import { resolveStoryblokTimestamp } from "../server/audits/index.ts";
 
 export const runFetchStoryStep = async (
   input: StoryblokReviewingInput,
@@ -16,11 +17,16 @@ export const runFetchStoryStep = async (
   }
 
   const client = new StoryblokClient({ accessToken });
-  const { data } = await client.getStory(String(input.storyId), { version: "draft" });
+  const timestamp = resolveStoryblokTimestamp(input.timestamp);
+  const { data } = await client.getStory(String(input.storyId), {
+    ...(timestamp ? { cv: Number.parseInt(timestamp, 10) } : {}),
+    version: "draft",
+  });
 
   return {
     space_id: input.spaceId,
     story_id: input.storyId,
+    timestamp,
     story: {
       id: data.story.id,
       uuid: data.story.uuid,

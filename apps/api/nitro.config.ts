@@ -7,7 +7,6 @@ const shouldEnableWorkflowNitroModule =
   !isWindowsDev || process.env.CONTENT_GUARD_FORCE_WORKFLOW_ENGINE === "1";
 
 export default defineConfig({
-  dotenv: true,
   modules: shouldEnableWorkflowNitroModule ? ["workflow/nitro"] : [],
   watchOptions: {
     ignored: [

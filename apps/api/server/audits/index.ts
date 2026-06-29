@@ -1,6 +1,7 @@
 export interface StoryblokReviewingInput {
   storyId: number | string;
   spaceId: number | string;
+  timestamp?: number | string;
 }
 
 export interface StoryblokWorkflowWebhookPayload {
@@ -95,10 +96,20 @@ const asNumericString = (value: unknown): string | undefined => {
   return undefined;
 };
 
-const resolveUnixTimestamp = (value: unknown): string => {
+const normalizeUnixTimestampSeconds = (numeric: string): string => {
+  const parsed = Number.parseInt(numeric, 10);
+
+  if (!Number.isFinite(parsed)) {
+    return numeric;
+  }
+
+  return numeric.length >= 13 ? String(Math.trunc(parsed / 1_000)) : String(parsed);
+};
+
+export const resolveStoryblokTimestamp = (value: unknown): string | undefined => {
   const numeric = asNumericString(value);
   if (numeric !== undefined) {
-    return numeric;
+    return normalizeUnixTimestampSeconds(numeric);
   }
 
   const text = asNonEmptyString(value);
@@ -109,7 +120,11 @@ const resolveUnixTimestamp = (value: unknown): string => {
     }
   }
 
-  return String(Math.floor(Date.now() / 1_000));
+  return undefined;
+};
+
+const resolveUnixTimestamp = (value: unknown): string => {
+  return resolveStoryblokTimestamp(value) ?? String(Math.floor(Date.now() / 1_000));
 };
 
 const resolveUnixTimestampMs = (value: unknown): string => {

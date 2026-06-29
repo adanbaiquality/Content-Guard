@@ -46,9 +46,10 @@ type WorkflowOutput = {
   audits: WorkflowAudit[];
   status: "completed";
   summary: {
+    checks?: WorkflowStepSummary[];
     failed: number;
     passed: number;
-    steps: WorkflowStepSummary[];
+    steps?: WorkflowStepSummary[];
     total: number;
   };
 };
@@ -182,7 +183,7 @@ function mapWorkflowOutputToAudits(output: WorkflowOutput | undefined): AuditRes
     return [];
   }
 
-  const steps = output.summary?.steps || [];
+  const steps = output.summary?.checks || output.summary?.steps || [];
   const audits: AuditResult[] = [];
 
   const a11yStep = steps.find((step) => step.name === "preview-a11y-axe");

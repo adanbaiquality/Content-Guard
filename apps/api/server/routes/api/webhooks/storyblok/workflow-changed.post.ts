@@ -1,16 +1,22 @@
 import { HTTPError, defineEventHandler, readBody } from "h3";
 import { z } from "zod";
-import { start } from "workflow/api";
+import { getRun, start } from "workflow/api";
 
 import logger from "../../../../utils/logger.ts";
+import { resolveStoryblokTimestamp } from "../../../../audits/index.ts";
 import {
+  type StoryblokReviewingAuditWorkflowResult,
   runStoryblokReviewingAudits,
   runStoryblokReviewingAuditsInline,
 } from "../../../../../workflows/storyblok-reviewing-audits.ts";
 import { rememberLatestRunId } from "../../../../utils/workflow-run-cache.ts";
+import {
+  persistWorkflowRunOutput,
+  type WorkflowRunOutputResponse,
+  type WorkflowRunStatus,
+} from "../../../../utils/workflow-run-output-store.ts";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
-const LOCAL_WORKFLOW_RUN_ID_PREFIX = "local-run";
 
 const WebhookBodySchema = z
   .object({
@@ -20,8 +26,15 @@ const WebhookBodySchema = z
     spaceid: z
       .union([z.number().finite(), z.string().trim().min(1)])
       .transform((val) => (typeof val === "string" ? val.trim() : val)),
+    timestamp: z
+      .union([z.number().finite(), z.string().trim().min(1)])
+      .transform((val) => (typeof val === "string" ? val.trim() : val))
+      .optional(),
   })
   .strict();
+
+const toPublicRunId = (storyId: string | number, timestamp: string): string =>
+  `${String(storyId).trim()}-${timestamp}`;
 
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
@@ -39,6 +52,118 @@ const toErrorMessage = (error: unknown): string => {
     return JSON.stringify(error);
   } catch {
     return String(error);
+  }
+};
+
+const DEFAULT_WORKFLOW_NAME =
+  runStoryblokReviewingAudits.name ||
+  runStoryblokReviewingAuditsInline.name ||
+  "workflow//./workflows/storyblok-reviewing-audits//runStoryblokReviewingAudits";
+
+const isWindowsDev = process.platform === "win32" && process.env.NODE_ENV !== "production";
+const shouldUseWorkflowEngine = !isWindowsDev || process.env.CONTENT_GUARD_FORCE_WORKFLOW_ENGINE === "1";
+
+const toIsoString = (value: Date | undefined): string | undefined => value?.toISOString();
+
+const persistWorkflowRunOutputSafely = async (
+  response: WorkflowRunOutputResponse<StoryblokReviewingAuditWorkflowResult>,
+): Promise<void> => {
+  try {
+    await persistWorkflowRunOutput(response);
+  } catch (error) {
+    logger.warn(
+      {
+        error: toErrorMessage(error),
+        runId: response.runId,
+      },
+      "Failed to persist workflow run output",
+    );
+  }
+};
+
+const createWorkflowRunResponse = (params: {
+  createdAt: string;
+  errorMessage?: string;
+  output?: StoryblokReviewingAuditWorkflowResult;
+  runId: string;
+  startedAt?: string;
+  status: WorkflowRunStatus;
+  workflowName?: string;
+}): WorkflowRunOutputResponse<StoryblokReviewingAuditWorkflowResult> => ({
+  errorMessage: params.errorMessage,
+  ok: true,
+  output: params.output,
+  runId: params.runId,
+  status: params.status,
+  timestamps: {
+    completedAt:
+      params.status === "completed" || params.status === "failed" || params.status === "cancelled"
+        ? new Date().toISOString()
+        : undefined,
+    createdAt: params.createdAt,
+    startedAt: params.startedAt,
+  },
+  workflowName: params.workflowName ?? DEFAULT_WORKFLOW_NAME,
+});
+
+const trackWorkflowEngineRun = async (params: {
+  runId: string;
+  workflowRunId: string;
+}): Promise<void> => {
+  const run = getRun<StoryblokReviewingAuditWorkflowResult>(params.workflowRunId);
+
+  const [workflowName, createdAt, startedAt, initialStatus] = await Promise.all([
+    run.workflowName,
+    run.createdAt,
+    run.startedAt,
+    run.status,
+  ]);
+
+  await persistWorkflowRunOutputSafely(
+    createWorkflowRunResponse({
+      createdAt: createdAt.toISOString(),
+      runId: params.runId,
+      startedAt: toIsoString(startedAt),
+      status: initialStatus,
+      workflowName,
+    }),
+  );
+
+  try {
+    const output = await run.returnValue;
+    const completedAt = await run.completedAt;
+
+    await persistWorkflowRunOutputSafely({
+      ok: true,
+      output,
+      runId: params.runId,
+      status: "completed",
+      timestamps: {
+        completedAt: toIsoString(completedAt),
+        createdAt: createdAt.toISOString(),
+        startedAt: toIsoString(startedAt),
+      },
+      workflowName,
+    });
+  } catch (error) {
+    const [status, completedAt] = await Promise.all([
+      run.status.catch(() => "failed" as const),
+      run.completedAt.catch(() => undefined),
+    ]);
+
+    await persistWorkflowRunOutputSafely({
+      errorMessage: toErrorMessage(error),
+      ok: true,
+      output: undefined,
+      runId: params.runId,
+      status: status === "cancelled" ? "cancelled" : "failed",
+      timestamps: {
+        completedAt: toIsoString(completedAt),
+        createdAt: createdAt.toISOString(),
+        startedAt: toIsoString(startedAt),
+      },
+      workflowName,
+    });
   }
 };
 
@@ -67,52 +192,80 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const { id: storyId, spaceid: spaceId } = validatedInput;
+  const { id: storyId, spaceid: spaceId, timestamp: rawTimestamp } = validatedInput;
+  const timestamp = resolveStoryblokTimestamp(rawTimestamp);
+  const publicRunId = toPublicRunId(
+    storyId,
+    timestamp ?? String(Math.floor(Date.now() / 1_000)),
+  );
 
-  logger.debug({ spaceId, storyId }, "Starting storyblok reviewing audits workflow");
+  logger.debug({ publicRunId, spaceId, storyId, timestamp }, "Starting storyblok reviewing audits workflow");
 
-  const shouldRunInlineInDev =
-    process.platform === "win32" &&
-    process.env.NODE_ENV !== "production" &&
-    process.env.CONTENT_GUARD_FORCE_WORKFLOW_ENGINE !== "1";
+  const runId = publicRunId;
 
-  if (shouldRunInlineInDev) {
-    const runId = `${LOCAL_WORKFLOW_RUN_ID_PREFIX}-${Date.now()}`;
+  if (shouldUseWorkflowEngine) {
+    const run = await start(runStoryblokReviewingAudits, [{ spaceId, storyId, timestamp }]);
+    const workflowRunId =
+      (run as { id?: string; runId?: string }).id ?? (run as { id?: string; runId?: string }).runId;
 
-    void runStoryblokReviewingAuditsInline({ spaceId, storyId })
-      .then((result) => {
-        logger.debug({ runId, summary: result.summary }, "Inline workflow completed");
-        return result;
-      })
-      .catch((error) => {
+    logger.debug({ runId, storyId, timestamp, workflowRunId }, "Workflow started successfully");
+
+    rememberLatestRunId({ publicRunId: runId, spaceId, storyId, workflowRunId });
+
+    if (workflowRunId) {
+      void trackWorkflowEngineRun({ runId, workflowRunId }).catch((error) => {
         logger.error(
           {
             error: toErrorMessage(error),
             runId,
+            workflowRunId,
           },
-          "Inline workflow failed",
+          "Failed to persist workflow engine run output",
         );
       });
+    }
 
-    logger.warn(
-      { runId },
-      "Running workflow inline on Windows dev to avoid workflow engine crash. Set CONTENT_GUARD_FORCE_WORKFLOW_ENGINE=1 to force engine mode.",
+    return { ok: true, runId, spaceId, storyId, timestamp };
+  }
+
+  logger.debug(
+    { runId, spaceId, storyId, timestamp },
+    "Workflow engine disabled; running Storyblok reviewing audits inline",
+  );
+
+  const createdAt = new Date().toISOString();
+  const startedAt = createdAt;
+
+  try {
+    const output = await runStoryblokReviewingAuditsInline({ spaceId, storyId, timestamp });
+
+    await persistWorkflowRunOutputSafely(
+      createWorkflowRunResponse({
+        createdAt,
+        output,
+        runId,
+        startedAt,
+        status: "completed",
+        workflowName: DEFAULT_WORKFLOW_NAME,
+      }),
     );
 
-    rememberLatestRunId({ runId, spaceId, storyId });
+    rememberLatestRunId({ publicRunId: runId, spaceId, storyId });
 
-    return { ok: true, runId, spaceId, storyId };
+    return { ok: true, runId, spaceId, storyId, timestamp };
+  } catch (error) {
+    await persistWorkflowRunOutputSafely(
+      createWorkflowRunResponse({
+        createdAt,
+        errorMessage: toErrorMessage(error),
+        runId,
+        startedAt,
+        status: "failed",
+        workflowName: DEFAULT_WORKFLOW_NAME,
+      }),
+    );
+
+    throw error;
   }
 
-  const run = await start(runStoryblokReviewingAudits, [{ spaceId, storyId }]);
-  const runId =
-    (run as { id?: string; runId?: string }).id ?? (run as { id?: string; runId?: string }).runId;
-
-  logger.debug({ runId, storyId }, "Workflow started successfully");
-
-  if (runId) {
-    rememberLatestRunId({ runId, spaceId, storyId });
-  }
-
-  return { ok: true, runId, spaceId, storyId };
 });

@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 
 import type {
@@ -233,7 +233,7 @@ export const runPreviewStyleGuideAudit = async (
   const openai = createOpenAI({ apiKey: openaiApiKey });
   const model = asNonEmptyString(process.env.OPENAI_MODEL) ?? "gpt-4o-mini";
 
-  const { object: result } = await generateObject({
+  const { output: result } = await generateText({
     messages: [
       {
         content: `You are a content compliance auditor. Check whether the following content adheres to each listed style guideline.
@@ -249,7 +249,7 @@ Analyze the content carefully against every guideline and report any violations 
       },
     ],
     model: openai(model),
-    schema: complianceResultSchema,
+    output: Output.object({ schema: complianceResultSchema }),
   });
 
   return {
