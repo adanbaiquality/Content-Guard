@@ -1,10 +1,8 @@
 import Head from "next/head";
 import ContentGuardPanel from "@/components/ContentGuardPanel";
-import { useAppBridge, useAutoHeight } from "@/hooks";
+import { useAppBridge } from "@/hooks";
 
 export default function Home() {
-  useAutoHeight();
-
   // Keep tool iframe in mocked mode for now so content is always visible in Storyblok.
   const { completed } = useAppBridge({ oauth: false, type: "tool-plugin" });
 
