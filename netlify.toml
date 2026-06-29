@@ -1,8 +1,7 @@
 [build]
-  # Build the Storyblok plugin from the monorepo and keep publish output separate from base.
+  # Build the Storyblok plugin from the monorepo using Netlify's Next.js runtime.
   base = "."
   command = "pnpm --filter @content-guard/storyblok-plugin build"
-  publish = "apps/storyblok-plugin/.next"
 
 [build.environment]
   NODE_VERSION = "22"
