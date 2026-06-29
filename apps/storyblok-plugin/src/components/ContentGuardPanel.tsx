@@ -705,7 +705,7 @@ function ProgressSummary({ audits }: { audits: AuditResult[] }) {
         severityStyles[status],
       )}
     >
-      <p className="text-[1.4rem] leading-none font-extrabold">
+      <p className="text-[1.2rem] leading-none font-extrabold">
         {isAllGood ? "everything ok" : `${issueCount} issue${issueCount === 1 ? "" : "s"}`}
       </p>
     </div>
@@ -854,7 +854,7 @@ export default function ContentGuardPanel() {
                 <button
                   type="button"
                   onClick={() => setIsRunTooltipPinned((current) => !current)}
-                  className="text-xs font-normal text-zinc-500 transition-colors hover:text-zinc-600"
+                  className="text-[10px] font-normal text-zinc-500 transition-colors hover:text-zinc-600"
                 >
                   Last run: {formattedLastRunAt}
                 </button>
