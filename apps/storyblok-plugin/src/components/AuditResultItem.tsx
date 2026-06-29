@@ -41,7 +41,6 @@ function getRuleUrl(result: AuditResult): string | null {
 export default function AuditResultItem({ result }: AuditResultItemProps) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
-  const [context, setContext] = useState("");
   const ruleUrl = getRuleUrl(result);
 
   if (result.passed) {
@@ -97,7 +96,7 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
   const severityVariant = severityMeta.variant;
   const SeverityIcon = severityMeta.icon;
   const severityLabel = severityMeta.label;
-  const promptText = buildPrompt(result, context);
+  const promptText = buildPrompt(result);
 
   const copyWithFallback = async (text: string): Promise<boolean> => {
     try {
@@ -191,20 +190,6 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
           </div>
         )}
 
-        {/* Context textarea */}
-        <div>
-          <label className="mb-1 block text-[11px] font-medium text-zinc-500">
-            Add context for the AI fix <span className="font-normal text-zinc-400">(optional)</span>
-          </label>
-          <textarea
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            rows={2}
-            placeholder="e.g. this is the main CTA on a mortgage page, formal tone"
-            className="w-full resize-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700 placeholder-zinc-400 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-300"
-          />
-        </div>
-
         {/* Actions */}
         <div className="flex items-center gap-2">
           <button
@@ -230,7 +215,7 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
   );
 }
 
-function buildPrompt(result: AuditResult, userContext: string): string {
+function buildPrompt(result: AuditResult): string {
   const lines: string[] = [
     `Fix this Storyblok content ${result.category} issue:`,
     `- Category: ${result.category.toUpperCase()}`,
@@ -240,7 +225,6 @@ function buildPrompt(result: AuditResult, userContext: string): string {
     `- Problem: ${result.message}`,
     result.current ? `- Current content: ${result.current}` : "",
     result.suggestion ? `- Suggested replacement: ${result.suggestion}` : "",
-    userContext ? `\nAdditional context from editor:\n${userContext}` : "",
     "",
     "Please propose exact, minimal content changes that resolve this issue while preserving the original meaning.",
     "",
