@@ -7,6 +7,11 @@
   --cg-ink: #1e2a1f;
 }
 
+html {
+  height: auto;
+  overflow: hidden;
+}
+
 body {
   background: var(--cg-bg);
   color: var(--cg-ink);

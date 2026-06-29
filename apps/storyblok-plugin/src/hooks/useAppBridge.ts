@@ -260,7 +260,10 @@ export const useAppBridge = ({ type, oauth }: { type: PluginType; oauth: boolean
 
   useEffect(() => {
     void initAppBridgeAuth();
-  }, [initAppBridgeAuth, oauth, type]);
+    // Re-run only when plugin config changes, not on every render.
+    // `initAppBridgeAuth` is recreated each render, which causes repeated validation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oauth, type]);
 
   return {
     appBridgeAuth: appBridgeAuthStatus,

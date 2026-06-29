@@ -1,24 +1,14 @@
-import Image from "next/image";
 import { type AuditCategory, type AuditResult } from "@/types";
 import AuditResultItem from "@/components/AuditResultItem";
 
-const CATEGORY_META: Record<
-  AuditCategory,
-  { label: string; iconSrc: string; passedText: string }
-> = {
+const CATEGORY_META: Record<AuditCategory, { passedText: string }> = {
   a11y: {
-    label: "Accessibility",
-    iconSrc: "/accessibility-icon.svg",
     passedText: "No accessibility issues found.",
   },
   afm: {
-    label: "AFM Readability",
-    iconSrc: "/afm-icon.svg",
     passedText: "All readability checks passed.",
   },
   brand: {
-    label: "Brand & Tone",
-    iconSrc: "/brand-icon.svg",
     passedText: "No brand or tone issues found.",
   },
 };
@@ -26,6 +16,7 @@ const CATEGORY_META: Record<
 type CategorySectionProps = {
   category: AuditCategory;
   audits: AuditResult[];
+  settingsUrl?: string;
 };
 
 const severityRank: Record<AuditResult["severity"], number> = {
@@ -34,8 +25,41 @@ const severityRank: Record<AuditResult["severity"], number> = {
   info: 1,
 };
 
-function sortBySeverityHighToLow(audits: AuditResult[]) {
+function getWcagTuple(ruleId?: string): [number, number, number] | null {
+  if (!ruleId) {
+    return null;
+  }
+
+  const match = ruleId.match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) {
+    return null;
+  }
+
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareWcagTuple(a: [number, number, number], b: [number, number, number]) {
+  if (a[0] !== b[0]) return a[0] - b[0];
+  if (a[1] !== b[1]) return a[1] - b[1];
+  return a[2] - b[2];
+}
+
+function sortAudits(audits: AuditResult[]) {
   return [...audits].sort((a, b) => {
+    const aWcag = getWcagTuple(a.ruleId);
+    const bWcag = getWcagTuple(b.ruleId);
+
+    if (aWcag && bWcag) {
+      const wcagDelta = compareWcagTuple(aWcag, bWcag);
+      if (wcagDelta !== 0) {
+        return wcagDelta;
+      }
+    } else if (aWcag && !bWcag) {
+      return -1;
+    } else if (!aWcag && bWcag) {
+      return 1;
+    }
+
     const rankDelta = severityRank[b.severity] - severityRank[a.severity];
     if (rankDelta !== 0) {
       return rankDelta;
@@ -45,22 +69,25 @@ function sortBySeverityHighToLow(audits: AuditResult[]) {
   });
 }
 
-export default function CategorySection({ category, audits }: CategorySectionProps) {
-  const { label, iconSrc, passedText } = CATEGORY_META[category];
-  const failing = sortBySeverityHighToLow(audits.filter((a) => !a.passed));
-  const passing = sortBySeverityHighToLow(audits.filter((a) => a.passed));
+export default function CategorySection({ category, audits, settingsUrl }: CategorySectionProps) {
+  const { passedText } = CATEGORY_META[category];
+  const failing = sortAudits(audits.filter((a) => !a.passed));
+  const passing = sortAudits(audits.filter((a) => a.passed));
 
   return (
     <section className="space-y-2" id={`section-${category}`}>
-      <header className="flex items-center gap-2.5 rounded-xl border border-[var(--cg-border)] bg-[var(--cg-panel)] px-4 py-2.5">
-        <Image src={iconSrc} alt="" width={20} height={20} className="opacity-80" />
-        <h2 className="text-sm font-bold tracking-wide text-zinc-900">{label}</h2>
-        <span className="ml-auto text-xs text-zinc-500">
-          {failing.length === 0
-            ? `${audits.length} checks passed`
-            : `${failing.length} issue${failing.length > 1 ? "s" : ""}`}
-        </span>
-      </header>
+      {settingsUrl ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <a
+            href={settingsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold underline decoration-blue-400 underline-offset-2 hover:decoration-blue-700"
+          >
+            Open Brand Settings in Storyblok
+          </a>
+        </div>
+      ) : null}
 
       {audits.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zinc-200 bg-white px-4 py-5 text-sm text-zinc-500">

@@ -15,5 +15,7 @@ export type AuditResult = {
 	suggestion?: string;
 	/** Rule reference, e.g. "WCAG 2.4.4" */
 	ruleId?: string;
+	/** Optional URL to the exact rule or document section */
+	ruleUrl?: string;
 	meta?: Record<string, unknown>;
 };
