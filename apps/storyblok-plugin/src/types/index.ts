@@ -1,1 +1,19 @@
-export type * from "./appBridge";
+export * from "./appBridge";
+
+export type AuditCategory = "a11y" | "afm" | "brand";
+export type AuditSeverity = "blocking" | "warning" | "info";
+
+export type AuditResult = {
+	audit: string;
+	passed: boolean;
+	message: string;
+	category: AuditCategory;
+	severity: AuditSeverity;
+	/** Current content that violates the rule */
+	current?: string;
+	/** Suggested replacement content */
+	suggestion?: string;
+	/** Rule reference, e.g. "WCAG 2.4.4" */
+	ruleId?: string;
+	meta?: Record<string, unknown>;
+};

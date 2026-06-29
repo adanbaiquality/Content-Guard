@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+  --cg-bg: #ffffff;
+  --cg-panel: #f5f7eb;
+  --cg-border: #dbe3c2;
+  --cg-ink: #1e2a1f;
+}
+
+body {
+  background: var(--cg-bg);
+  color: var(--cg-ink);
+  font-family: "Public Sans", "Avenir Next", "Segoe UI", sans-serif;
+}
