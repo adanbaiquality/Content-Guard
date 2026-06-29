@@ -82,10 +82,6 @@ export const isValidPreviewUrl = (value: string): boolean => {
   }
 };
 
-
-
-
-
 export const reviewingAudits: Audit[] = [];
 
 const getErrorMessage = (error: unknown): string => {
