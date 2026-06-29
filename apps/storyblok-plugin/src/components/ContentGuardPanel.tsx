@@ -96,7 +96,7 @@ function CategoryTabTrigger({
     <TabsTrigger
       value={category}
       className={cn(
-        "inline-flex h-auto items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
+        "inline-flex h-auto w-full items-center justify-between gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
         "bg-white/50 hover:bg-white data-[state=active]:text-current",
         styles[status],
       )}
@@ -174,19 +174,21 @@ export default function ContentGuardPanel() {
       >
         {/* Category tabs + export */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <TabsList className="flex h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-3">
             {CATEGORIES.map((cat) => (
               <CategoryTabTrigger key={cat} category={cat} audits={byCategory[cat]} />
             ))}
           </TabsList>
 
-          <button
-            type="button"
-            onClick={() => downloadResultsAsXlsx(byCategory)}
-            className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
-          >
-            Download XLSX
-          </button>
+          <div className="flex w-full justify-center">
+            <button
+              type="button"
+              onClick={() => downloadResultsAsXlsx(byCategory)}
+              className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+            >
+              Download XLSX
+            </button>
+          </div>
         </div>
       </Tabs>
 
