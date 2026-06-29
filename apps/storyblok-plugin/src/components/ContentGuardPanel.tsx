@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import CategorySection from "@/components/AccessibilitySection";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,43 @@ function getCategoryStatus(audits: AuditResult[]) {
 
 function isAuditCategory(value: string): value is AuditCategory {
   return CATEGORIES.includes(value as AuditCategory);
+}
+
+function toExportRow(category: AuditCategory, result: AuditResult) {
+  return {
+    Category: CATEGORY_LABELS[category],
+    Audit: result.audit,
+    Status: result.passed ? "Passed" : "Failed",
+    Passed: result.passed,
+    Severity: result.severity,
+    Message: result.message,
+    "Rule ID": result.ruleId ?? "",
+    Current: result.current ?? "",
+    Suggestion: result.suggestion ?? "",
+  };
+}
+
+function downloadResultsAsXlsx(byCategory: Record<AuditCategory, AuditResult[]>) {
+  const workbook = XLSX.utils.book_new();
+
+  const allRows = CATEGORIES.flatMap((category) =>
+    byCategory[category].map((result) => toExportRow(category, result)),
+  );
+
+  const allResultsSheet = XLSX.utils.json_to_sheet(allRows);
+  XLSX.utils.book_append_sheet(workbook, allResultsSheet, "All Results");
+
+  CATEGORIES.forEach((category) => {
+    const rows = byCategory[category].map((result) => toExportRow(category, result));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, CATEGORY_LABELS[category]);
+  });
+
+  const timestamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  XLSX.writeFile(workbook, `content-guard-results-${timestamp}.xlsx`, {
+    compression: true,
+  });
 }
 
 function CategoryTabTrigger({
@@ -132,12 +170,22 @@ export default function ContentGuardPanel() {
           }
         }}
       >
-        {/* Category tabs */}
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 px-1">
-          {CATEGORIES.map((cat) => (
-            <CategoryTabTrigger key={cat} category={cat} audits={byCategory[cat]} />
-          ))}
-        </TabsList>
+        {/* Category tabs + export */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+          <TabsList className="flex h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
+            {CATEGORIES.map((cat) => (
+              <CategoryTabTrigger key={cat} category={cat} audits={byCategory[cat]} />
+            ))}
+          </TabsList>
+
+          <button
+            type="button"
+            onClick={() => downloadResultsAsXlsx(byCategory)}
+            className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+          >
+            Download XLSX
+          </button>
+        </div>
       </Tabs>
 
       {/* Active category section */}
