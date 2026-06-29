@@ -1,5 +1,0 @@
-allowBuilds:
-  sharp: set this to true or false
-overrides:
-  "@types/react": 19.2.17
-  "@types/react-dom": 19.2.3
