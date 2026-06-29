@@ -1,0 +1,11 @@
+[build]
+  command = "pnpm build:netlify"
+  publish = ".output/public"
+
+[build.environment]
+  NODE_VERSION = "22"
+  PNPM_VERSION = "11.9.0"
+
+[functions]
+  directory = ".netlify/functions-internal"
+  node_bundler = "esbuild"

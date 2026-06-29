@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nitro dev --port 8787",
     "build": "nitro build",
+    "build:netlify": "NITRO_PRESET=netlify nitro build",
     "start": "node .output/server/index.mjs",
     "preview": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit"
