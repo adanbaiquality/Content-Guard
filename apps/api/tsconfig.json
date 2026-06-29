@@ -7,9 +7,12 @@
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
-		"rootDir": "src",
-		"outDir": "dist",
-		"types": ["node"]
+		"types": ["node"],
+		"plugins": [
+			{
+				"name": "workflow"
+			}
+		]
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["nitro.config.ts", "server/**/*.ts", "workflows/**/*.ts"]
 }

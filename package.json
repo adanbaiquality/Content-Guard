@@ -9,10 +9,13 @@
 		"build": "pnpm --filter @content-guard/storyblok-plugin build && pnpm --filter @content-guard/api build",
 		"build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
 		"build:api": "pnpm --filter @content-guard/api build",
-		"lint": "pnpm --filter @content-guard/storyblok-plugin lint"
+		"lint": "pnpm --filter @content-guard/storyblok-plugin lint",
+		"fmt": "oxfmt",
+		"fmt:check": "oxfmt --check"
 	},
 	"devDependencies": {
-		"concurrently": "^9.1.2"
+		"concurrently": "^9.1.2",
+		"oxfmt": "^0.56.0"
 	},
 	"engines": {
 		"pnpm": "11",

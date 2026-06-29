@@ -1,16 +1,16 @@
-# Content Guard Monorepo (Next.js + Hono)
+# Content Guard Monorepo (Next.js + Nitro)
 
 This repository is now a **pnpm monorepo** with:
 
 - `@content-guard/storyblok-plugin` (`apps/storyblok-plugin`): Storyblok plugin Next.js frontend (Pages Router)
-- `@content-guard/api` (`apps/api`): Hono backend
+- `@content-guard/api` (`apps/api`): Nitro backend with Workflow SDK
 
 ## Workspace layout
 
 - `package.json`: workspace orchestrator scripts
 - `pnpm-workspace.yaml`: workspace package selection
 - `apps/storyblok-plugin`: Storyblok plugin app
-- `apps/api`: Hono API service
+- `apps/api`: Nitro API service
 
 ## Environment setup
 
@@ -25,7 +25,8 @@ Important variables:
 - `BASE_URL`
 - `WEB_ORIGIN` (default: `http://localhost:3000`)
 - `API_PORT` (default: `8787`)
-- `STORYBLOK_MANAGEMENT_TOKEN` (optional, for `/api/user_info` in Hono)
+- `WORKFLOW_TARGET_WORLD` (optional, defaults to local world during development)
+- `WORKFLOW_POSTGRES_URL` (required when `WORKFLOW_TARGET_WORLD=@workflow/world-postgres`)
 
 ## Run locally
 
@@ -51,12 +52,14 @@ pnpm build
 
 ## Current API routing notes
 
-- The `Example` frontend component now calls the Hono backend using `NEXT_PUBLIC_API_BASE_URL`.
+- The `Example` frontend component now calls the API using `NEXT_PUBLIC_API_BASE_URL`.
 - The Storyblok plugin Next.js API routes now live under `apps/storyblok-plugin/src/pages/api`.
-- Hono endpoints currently available:
+- Nitro endpoints currently available:
   - `GET /api/health`
-  - `GET /api/example`
-  - `GET /api/user_info`
-  - `POST /api/_app_bridge`
-  - `POST /api/_oauth`
-  - `ALL /api/connect/*` (placeholder response)
+  - `POST /api/webhooks/storyblok/workflow-changed`
+
+### Storyblok workflow webhook behavior
+
+- The webhook endpoint accepts Storyblok workflow change payloads.
+- If the incoming state is `reviewing`, the API triggers a Workflow SDK workflow to run one or more audits.
+- If the state is anything else, the endpoint acknowledges the request and performs no audits.
