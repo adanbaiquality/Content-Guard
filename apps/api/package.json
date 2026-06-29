@@ -10,15 +10,15 @@
     "preview": "node .output/server/index.mjs"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "h3": "^2.0.1-rc.4",
+    "@opentelemetry/api": "^1.9.1",
+    "h3": "2.0.1-rc.22",
     "storyblok-js-client": "^7.6.1",
     "workflow": "^4.5.0"
   },
   "devDependencies": {
-    "@types/node": "22.14.0",
+    "@types/node": "26.0.1",
     "nitro": "3.0.260610-beta",
-    "rollup": "^4.50.0",
-    "typescript": "5.8.3"
+    "rollup": "^4.62.2",
+    "typescript": "6.0.3"
   }
 }
