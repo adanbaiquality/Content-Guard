@@ -3,6 +3,7 @@ import { defineEventHandler } from "h3";
 export default defineEventHandler(() => ({
   endpoints: [
     { method: "GET", path: "/api/health" },
+    { method: "GET", path: "/api/workflows/:runId/output" },
     { method: "POST", path: "/api/webhooks/storyblok/workflow-changed" },
   ],
   ok: true,

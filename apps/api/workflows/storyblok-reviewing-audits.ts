@@ -3,6 +3,7 @@ import {
   type StoryblokWorkflowWebhookPayload,
   runReviewingAudits,
 } from "../server/audits/index.ts";
+import { runFetchStoryAudit } from "./fetch-story.step.ts";
 import { runPreviewA11yAxeAudit } from "./preview-a11y-axe.step.ts";
 import { runPreviewAFMAudit } from "./preview-afm.step.ts";
 
@@ -22,9 +23,10 @@ export async function runStoryblokReviewingAudits(
   "use workflow";
 
   const baseAudits = await runReviewingAudits(payload);
+  const fetchStoryAudit = await runFetchStoryAudit(payload);
   const previewA11yAudit = await runPreviewA11yAxeAudit(payload);
   const previewAFMAudit = await runPreviewAFMAudit(payload);
-  const audits = [...baseAudits, previewA11yAudit, previewAFMAudit];
+  const audits = [...baseAudits, fetchStoryAudit, previewA11yAudit, previewAFMAudit];
   const passed = audits.filter((audit) => audit.passed).length;
 
   return {
