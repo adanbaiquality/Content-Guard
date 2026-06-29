@@ -617,18 +617,42 @@ function toExportRow(category: AuditCategory, result: AuditResult) {
   };
 }
 
+const EXPORT_SEVERITY_RANK: Record<AuditResult["severity"], number> = {
+  critical: 4,
+  serious: 3,
+  moderate: 2,
+  minor: 1,
+};
+
+function sortAuditsForExport(audits: AuditResult[]): AuditResult[] {
+  return [...audits].sort((a, b) => {
+    const severityDelta = EXPORT_SEVERITY_RANK[b.severity] - EXPORT_SEVERITY_RANK[a.severity];
+    if (severityDelta !== 0) {
+      return severityDelta;
+    }
+
+    if (a.passed !== b.passed) {
+      return a.passed ? 1 : -1;
+    }
+
+    return a.audit.localeCompare(b.audit);
+  });
+}
+
 function downloadResultsAsXlsx(byCategory: Record<AuditCategory, AuditResult[]>) {
   const workbook = XLSX.utils.book_new();
 
   const allRows = CATEGORIES.flatMap((category) =>
-    byCategory[category].map((result) => toExportRow(category, result)),
+    sortAuditsForExport(byCategory[category]).map((result) => toExportRow(category, result)),
   );
 
   const allResultsSheet = XLSX.utils.json_to_sheet(allRows);
   XLSX.utils.book_append_sheet(workbook, allResultsSheet, "All Results");
 
   CATEGORIES.forEach((category) => {
-    const rows = byCategory[category].map((result) => toExportRow(category, result));
+    const rows = sortAuditsForExport(byCategory[category]).map((result) =>
+      toExportRow(category, result),
+    );
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(workbook, worksheet, CATEGORY_LABELS[category]);
