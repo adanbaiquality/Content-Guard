@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-curl -s "http://localhost:8787/api/workflows/latest?id=192656289849877&spaceid=293515764469721" | jq
+curl -sL "http://localhost:8787/api/workflows/latest?id=192656289849877&spaceid=293515764469721" | jq

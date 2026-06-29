@@ -6,6 +6,40 @@ import {
 import { runFetchStoryStep } from "./fetch-story.step.ts";
 import { runResolvePreviewUrlStep } from "./resolve-preview-url.step.ts";
 
+const A11Y_HIGH_IMPACTS = new Set(["critical", "serious", "high"]);
+
+const hasA11yHighErrors = (audit: AuditResult): boolean => {
+  const violations = (audit.meta as { violations?: unknown } | undefined)?.violations;
+  if (!Array.isArray(violations)) {
+    return !audit.passed;
+  }
+
+  return violations.some((violation) => {
+    if (typeof violation !== "object" || violation === null) {
+      return false;
+    }
+
+    const impact = (violation as { impact?: unknown }).impact;
+    return typeof impact === "string" && A11Y_HIGH_IMPACTS.has(impact.toLowerCase());
+  });
+};
+
+const hasAfmHighErrors = (audit: AuditResult): boolean => {
+  const violations = (audit.meta as { violations?: unknown } | undefined)?.violations;
+  if (!Array.isArray(violations)) {
+    return !audit.passed;
+  }
+
+  return violations.some((violation) => {
+    if (typeof violation !== "object" || violation === null) {
+      return false;
+    }
+
+    const severity = (violation as { severity?: unknown }).severity;
+    return typeof severity === "string" && severity.toLowerCase() === "error";
+  });
+};
+
 export interface StoryblokReviewingAuditWorkflowResult {
   status: "completed";
   audits: AuditResult[];
@@ -53,7 +87,24 @@ const executeStoryblokReviewingAudits = async (
   afmAudit.step = "preview-afm";
   browserAudits.push(afmAudit);
 
-  const styleGuideAudit = await runPreviewStyleGuideAudit(enrichedPayload);
+  const hasBlockingHighErrors = hasA11yHighErrors(a11yAudit) || hasAfmHighErrors(afmAudit);
+
+  // oxlint-disable-next-line no-constant-condition
+  const styleGuideAudit = hasBlockingHighErrors && false
+    ? ({
+        audit: "preview-style-guide",
+        message:
+          "Style guide audit was not run because A11y/AFM checks reported HIGH errors (page is not compliant).",
+        meta: {
+          error:
+            "Blocked by prerequisite compliance checks: fix HIGH A11y/AFM errors before running style guide audit.",
+          skipped: true,
+          skippedReason: "blocked-by-high-compliance-errors",
+        },
+        passed: false,
+      } satisfies AuditResult)
+    : await runPreviewStyleGuideAudit(enrichedPayload);
+
   styleGuideAudit.step = "preview-style-guide";
   browserAudits.push(styleGuideAudit);
 

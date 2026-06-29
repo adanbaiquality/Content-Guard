@@ -40,6 +40,14 @@ const validatePreviewUrl = (previewUrl: string | undefined): AuditResult | null 
   return null;
 };
 
+const truncate = (value: string, maxLength: number): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}…`;
+};
+
 export const runPreviewA11yAxeAudit = async (
   payload: StoryblokWorkflowWebhookPayload,
 ): Promise<AuditResult> => {
@@ -70,15 +78,32 @@ export const runPreviewA11yAxeAudit = async (
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a","wcag22aa", "best-practice"])
       .analyze();
 
-    const violations = axeResults.violations.map((violation: any) => ({
-      description: violation.description,
-      help: violation.help,
-      helpUrl: violation.helpUrl,
-      id: violation.id,
-      impact: violation.impact,
-      nodes: violation.nodes.length,
-      tags: violation.tags,
-    }));
+    const violations = axeResults.violations.map((violation: any) => {
+      const nodes = Array.isArray(violation.nodes)
+        ? violation.nodes.map((node: any) => ({
+            failureSummary:
+              typeof node.failureSummary === "string"
+                ? truncate(node.failureSummary, 600)
+                : undefined,
+            html: typeof node.html === "string" ? truncate(node.html, 600) : undefined,
+            impact: typeof node.impact === "string" ? node.impact : undefined,
+            target: Array.isArray(node.target)
+              ? node.target.filter((target: unknown): target is string => typeof target === "string")
+              : [],
+          }))
+        : [];
+
+      return {
+        description: violation.description,
+        help: violation.help,
+        helpUrl: violation.helpUrl,
+        id: violation.id,
+        impact: violation.impact,
+        nodes,
+        nodesCount: nodes.length,
+        tags: violation.tags,
+      };
+    });
 
     const passed = violations.length === 0;
 

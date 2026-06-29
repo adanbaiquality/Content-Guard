@@ -28,6 +28,11 @@ Important variables:
 - `WORKFLOW_TARGET_WORLD` (optional, defaults to local world during development)
 - `WORKFLOW_POSTGRES_URL` (required when `WORKFLOW_TARGET_WORLD=@workflow/world-postgres`)
 - `CONTENT_GUARD_DB_PATH` (optional, defaults to `.workflow-data/content-guard.db` for local cache/output persistence)
+- `OPENAI_API_KEY` (required for the style-guide audit)
+- `OPENAI_MODEL` (optional, default: `gpt-4o-mini`)
+- `OPENAI_BASE_URL` (optional, for OpenAI-compatible endpoints)
+- `OPENAI_API_VERSION` (optional, useful for Azure-hosted OpenAI-compatible endpoints)
+- `OPENAI_API_KEY_HEADER` (optional, default: `Authorization`; use `api-key` for Azure-style auth)
 
 ## Run locally
 

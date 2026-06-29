@@ -17,11 +17,33 @@ interface AFMViolation {
 interface AFMWarningAnalysis {
   details: string[];
   hasWarning: boolean;
-  hasWarningText: boolean;
-  heightRatio: number | null;
-  topPositionRatio: number | null;
-  warningKind: "image" | "none" | "text";
-  widthRatio: number | null;
+  media: {
+    hasAudioLikeAd: boolean;
+    hasWarningAudioHint: boolean;
+  };
+  mode: "image" | "none" | "text-full" | "text-short";
+  sourceHints: {
+    assetHost: string | null;
+    hasOfficialAssetHint: boolean;
+    sourceDescriptor: string | null;
+  };
+  style: {
+    color: string | null;
+    fontSizePx: number | null;
+    fontWeight: number | null;
+    isFixedLike: boolean;
+  };
+  warningText: {
+    hasFullText: boolean;
+    hasShortText: boolean;
+  };
+  warningGeometry: {
+    centerOffsetRatioX: number | null;
+    heightRatio: number | null;
+    leftRatio: number | null;
+    topRatio: number | null;
+    widthRatio: number | null;
+  };
 }
 
 export async function runPreviewAFMAudit(
@@ -128,22 +150,22 @@ async function performAFMChecks(page: Page): Promise<AFMViolation[]> {
     violations.push({
       count: positioningIssues.length,
       description:
-        "Kredietwaarschuwing placement/size deviates from AFM guidance for internet ads (centered top, full width, ~10% height).",
+        "Kredietwaarschuwing placement/size violates internet requirements (centered top, full width, minimum 10% height).",
       details: positioningIssues.slice(0, 5),
       severity: "error",
       type: "kredietwaarschuwing-position-size",
     });
   }
 
-  // Check 3: Warning remains visible on page (always visible requirement)
-  const visibilityIssues = await checkAFMVisibilityOnScroll(page);
+  // Check 3: Warning is visible in initial viewport
+  const visibilityIssues = await checkAFMInitialViewportVisibility(page);
   if (visibilityIssues.length > 0) {
     violations.push({
       count: visibilityIssues.length,
       description:
-        "Kredietwaarschuwing may not remain visible during browsing (AFM requires warning on each web page containing the ad).",
+        "Kredietwaarschuwing is not visible in the initial viewport.",
       details: visibilityIssues.slice(0, 5),
-      severity: "warning",
+      severity: "error",
       type: "kredietwaarschuwing-visibility",
     });
   }
@@ -154,10 +176,36 @@ async function performAFMChecks(page: Page): Promise<AFMViolation[]> {
     violations.push({
       count: sourceIssues.length,
       description:
-        "Could not identify clear AFM kredietwaarschuwing source/material hints. Manual review recommended.",
+        "AFM kredietwaarschuwing source/material could not be verified as official downloadable material.",
       details: sourceIssues.slice(0, 5),
-      severity: "warning",
+      severity: "error",
       type: "kredietwaarschuwing-source",
+    });
+  }
+
+  // Check 5: Fallback text mode requirements (Art. 2:2 lid 6-7)
+  const fallbackIssues = await checkAFMFallbackTextRules(page);
+  if (fallbackIssues.length > 0) {
+    violations.push({
+      count: fallbackIssues.length,
+      description:
+        "Fallback warning text mode does not meet required styling/placement constraints for internet ads.",
+      details: fallbackIssues.slice(0, 5),
+      severity: "error",
+      type: "kredietwaarschuwing-fallback",
+    });
+  }
+
+  // Check 6: Audio warning requirement (Art. 2:2 lid 3)
+  const audioIssues = await checkAFMAudioWarningRules(page);
+  if (audioIssues.length > 0) {
+    violations.push({
+      count: audioIssues.length,
+      description:
+        "Audio ad detected without verifiable AFM warning audio hint (required directly after ad at same speed/volume).",
+      details: audioIssues.slice(0, 5),
+      severity: "error",
+      type: "kredietwaarschuwing-audio",
     });
   }
 
@@ -171,39 +219,90 @@ async function analyzeAFMWarning(page: Page): Promise<AFMWarningAnalysis> {
       return {
         details: ["No <body> element found for AFM warning analysis."],
         hasWarning: false,
-        hasWarningText: false,
-        heightRatio: null,
-        topPositionRatio: null,
-        warningKind: "none" as const,
-        widthRatio: null,
+        media: {
+          hasAudioLikeAd: false,
+          hasWarningAudioHint: false,
+        },
+        mode: "none" as const,
+        sourceHints: {
+          assetHost: null,
+          hasOfficialAssetHint: false,
+          sourceDescriptor: null,
+        },
+        style: {
+          color: null,
+          fontSizePx: null,
+          fontWeight: null,
+          isFixedLike: false,
+        },
+        warningGeometry: {
+          centerOffsetRatioX: null,
+          heightRatio: null,
+          leftRatio: null,
+          topRatio: null,
+          widthRatio: null,
+        },
+        warningText: {
+          hasFullText: false,
+          hasShortText: false,
+        },
       };
     }
 
-    const warningTextRegex = /let\s*op!?\s*geld\s*lenen\s*kost\s*geld/i;
-    const keywordRegex = /kredietwaarschuwing|lenen\s*kost\s*geld|let\s*op/i;
+    const fullTextRegex = /let\s*op!?\s*geld\s*lenen\s*kost\s*geld\.?/i;
+    const shortTextRegex = /geld\s*lenen\s*kost\s*geld\.?/i;
+    const keywordRegex = /kredietwaarschuwing|lenen\s*kost\s*geld|let\s*op|afm/i;
+    const warningAudioRegex = /kredietwaarschuwing|let\s*op|geld\s*lenen\s*kost\s*geld/i;
 
-    const textNodes = [
-      ...document.querySelectorAll<HTMLElement>("p, span, div, strong, em, h1, h2, h3, h4, h5, h6"),
-    ];
+    const hasFullText = fullTextRegex.test(body.textContent || "");
+    const hasShortText = shortTextRegex.test(body.textContent || "");
 
-    let textCandidate: HTMLElement | null = null;
-    for (const el of textNodes) {
-      const text = (el.textContent ?? "").trim();
-      if (text.length === 0) {
-        continue;
+    const findTextMatch = (regex: RegExp) => {
+      const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+      let current = walker.nextNode();
+
+      while (current) {
+        const textNode = current as Text;
+        const rawText = textNode.textContent ?? "";
+        const text = rawText.trim();
+        if (text.length > 0) {
+          const match = rawText.match(regex);
+          if (match && typeof match.index === "number") {
+            const range = document.createRange();
+            const start = Math.max(match.index, 0);
+            const end = Math.min(start + match[0].length, rawText.length);
+            range.setStart(textNode, start);
+            range.setEnd(textNode, end);
+            const rect = range.getBoundingClientRect();
+            const element = textNode.parentElement;
+
+            if (element && rect.width > 0 && rect.height > 0) {
+              return {
+                element,
+                rect,
+              };
+            }
+          }
+        }
+
+        current = walker.nextNode();
       }
-      if (warningTextRegex.test(text)) {
-        textCandidate = el;
-        break;
-      }
-    }
 
-    const imageLikeNodes = [...document.querySelectorAll<HTMLElement>("img, svg, picture")];
+      return null;
+    };
+
+    const fullTextMatch = findTextMatch(fullTextRegex);
+    const shortTextMatch = findTextMatch(shortTextRegex);
+
+    const imageLikeNodes = [...document.querySelectorAll<HTMLElement>("img, svg, picture, object")];
     let imageCandidate: HTMLElement | null = null;
+    let sourceDescriptor: string | null = null;
+    let assetHost: string | null = null;
 
     for (const el of imageLikeNodes) {
       const attrs = [
         el.getAttribute("src") ?? "",
+        el.getAttribute("data") ?? "",
         el.getAttribute("alt") ?? "",
         el.getAttribute("title") ?? "",
         el.getAttribute("aria-label") ?? "",
@@ -215,12 +314,71 @@ async function analyzeAFMWarning(page: Page): Promise<AFMWarningAnalysis> {
 
       if (keywordRegex.test(attrs)) {
         imageCandidate = el;
+        sourceDescriptor = attrs;
+        try {
+          const srcValue =
+            (el as HTMLImageElement).currentSrc ||
+            (el as HTMLImageElement).src ||
+            el.getAttribute("src") ||
+            el.getAttribute("data") ||
+            "";
+          if (srcValue) {
+            const url = new URL(srcValue, window.location.href);
+            assetHost = url.host.toLowerCase();
+          }
+        } catch {
+          assetHost = null;
+        }
         break;
       }
     }
 
-    const warningElement = textCandidate ?? imageCandidate;
-    const hasWarningText = warningTextRegex.test(body.textContent || "");
+    const warningElement = imageCandidate ?? fullTextMatch?.element ?? shortTextMatch?.element ?? null;
+    const mode = imageCandidate
+      ? ("image" as const)
+      : fullTextMatch
+        ? ("text-full" as const)
+        : shortTextMatch
+          ? ("text-short" as const)
+          : ("none" as const);
+
+    const audioNodes = [
+      ...document.querySelectorAll<HTMLAudioElement>("audio"),
+      ...document.querySelectorAll<HTMLVideoElement>("video"),
+    ];
+
+    const hasAudioLikeAd = audioNodes.some((node) => {
+      const src = (node.currentSrc || node.src || "").toLowerCase();
+      const attrs = [
+        src,
+        node.getAttribute("aria-label") ?? "",
+        node.getAttribute("title") ?? "",
+        node.id ?? "",
+        node.className ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        node.autoplay ||
+        src.length > 0 ||
+        /ad|reclame|commercial|promo|krediet|loan/.test(attrs)
+      );
+    });
+
+    const hasWarningAudioHint = audioNodes.some((node) => {
+      const attrs = [
+        node.currentSrc || node.src || "",
+        node.getAttribute("aria-label") ?? "",
+        node.getAttribute("title") ?? "",
+        node.id ?? "",
+        node.className ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return warningAudioRegex.test(attrs);
+    });
 
     if (!warningElement) {
       return {
@@ -228,34 +386,101 @@ async function analyzeAFMWarning(page: Page): Promise<AFMWarningAnalysis> {
           'No AFM kredietwaarschuwing element detected (expected warning "Let op! Geld lenen kost geld" and warning symbol).',
         ],
         hasWarning: false,
-        hasWarningText,
-        heightRatio: null,
-        topPositionRatio: null,
-        warningKind: "none" as const,
-        widthRatio: null,
+        media: {
+          hasAudioLikeAd,
+          hasWarningAudioHint,
+        },
+        mode,
+        sourceHints: {
+          assetHost,
+          hasOfficialAssetHint: false,
+          sourceDescriptor,
+        },
+        style: {
+          color: null,
+          fontSizePx: null,
+          fontWeight: null,
+          isFixedLike: false,
+        },
+        warningGeometry: {
+          centerOffsetRatioX: null,
+          heightRatio: null,
+          leftRatio: null,
+          topRatio: null,
+          widthRatio: null,
+        },
+        warningText: {
+          hasFullText,
+          hasShortText,
+        },
       };
     }
 
-    warningElement.setAttribute("data-afm-audit-target", "true");
-
-    const rect = warningElement.getBoundingClientRect();
+    const rect = imageCandidate
+      ? imageCandidate.getBoundingClientRect()
+      : fullTextMatch?.rect ?? shortTextMatch?.rect ?? warningElement.getBoundingClientRect();
     const viewportWidth = Math.max(window.innerWidth, 1);
     const viewportHeight = Math.max(window.innerHeight, 1);
 
     const widthRatio = rect.width / viewportWidth;
     const heightRatio = rect.height / viewportHeight;
-    const topPositionRatio = rect.top / viewportHeight;
+    const topRatio = rect.top / viewportHeight;
+    const leftRatio = rect.left / viewportWidth;
+    const elementCenterX = rect.left + rect.width / 2;
+    const viewportCenterX = viewportWidth / 2;
+    const centerOffsetRatioX = Math.abs(elementCenterX - viewportCenterX) / viewportWidth;
+
+    const computed = window.getComputedStyle(warningElement);
+    const fontSizeRaw = computed.fontSize || "";
+    const parsedFontSize = Number.parseFloat(fontSizeRaw);
+    const fontWeightRaw = computed.fontWeight || "";
+    const parsedFontWeight = Number.parseInt(fontWeightRaw, 10);
+    const normalizedFontWeight = Number.isNaN(parsedFontWeight)
+      ? fontWeightRaw === "bold"
+        ? 700
+        : 400
+      : parsedFontWeight;
+
+    const srcText = sourceDescriptor ?? "";
+    const hasOfficialAssetHint =
+      /(^|\.)afm\.nl$/.test(assetHost ?? "") ||
+      /afm\.nl\/kredietwaarschuwing/.test(srcText) ||
+      /kredietwaarschuwing/.test(srcText);
+
+    const isFixedLike = ["fixed", "sticky"].includes(computed.position);
 
     return {
       details: [
-        `Detected warning candidate (${textCandidate ? "text" : "image"}) at top=${Math.round(rect.top)}px, width=${Math.round(rect.width)}px, height=${Math.round(rect.height)}px.`,
+        `Detected warning candidate (${mode}) at top=${Math.round(rect.top)}px, left=${Math.round(rect.left)}px, width=${Math.round(rect.width)}px, height=${Math.round(rect.height)}px.`,
       ],
       hasWarning: true,
-      hasWarningText,
-      heightRatio,
-      topPositionRatio,
-      warningKind: textCandidate ? ("text" as const) : ("image" as const),
-      widthRatio,
+      media: {
+        hasAudioLikeAd,
+        hasWarningAudioHint,
+      },
+      mode,
+      sourceHints: {
+        assetHost,
+        hasOfficialAssetHint,
+        sourceDescriptor,
+      },
+      style: {
+        color: computed.color || null,
+        fontSizePx: Number.isFinite(parsedFontSize) ? parsedFontSize : null,
+        fontWeight: Number.isFinite(normalizedFontWeight) ? normalizedFontWeight : null,
+        isFixedLike,
+      },
+      warningGeometry: {
+        centerOffsetRatioX,
+        heightRatio,
+        leftRatio,
+        topRatio,
+        widthRatio,
+      },
+      warningText: {
+        hasFullText,
+        hasShortText,
+      },
     };
   });
 }
@@ -269,10 +494,12 @@ async function checkAFMWarningPresence(page: Page): Promise<string[]> {
       issues.push(...analysis.details);
     }
 
-    if (analysis.hasWarning && !analysis.hasWarningText) {
-      issues.push(
-        'Exact waarschuwingstekst "Let op! Geld lenen kost geld" not found as selectable text. If warning is image-only this may still be valid, but should be manually verified against AFM material.',
-      );
+    if (analysis.hasWarning && analysis.mode === "text-full" && !analysis.warningText.hasFullText) {
+      issues.push('Full warning mode detected but exact tekst "Let op! Geld lenen kost geld" was not matched.');
+    }
+
+    if (analysis.hasWarning && analysis.mode === "text-short" && !analysis.warningText.hasShortText) {
+      issues.push("Short warning text mode detected but expected shortened warning text pattern was not matched.");
     }
   } catch {
     issues.push("Unable to verify AFM warning presence due to DOM evaluation error.");
@@ -288,21 +515,35 @@ async function checkAFMPositioningAndSize(page: Page): Promise<string[]> {
       return issues;
     }
 
-    if (analysis.topPositionRatio !== null && analysis.topPositionRatio > 0.25) {
+    const { topRatio, widthRatio, heightRatio, centerOffsetRatioX } = analysis.warningGeometry;
+
+    if (topRatio !== null && topRatio > 0.05) {
       issues.push(
-        `Warning appears too low on page (top position ratio: ${analysis.topPositionRatio.toFixed(2)}; expected near top for internet ads).`,
+        `Warning is not positioned at the top (top ratio: ${topRatio.toFixed(3)}; expected <= 0.05).`,
       );
     }
 
-    if (analysis.widthRatio !== null && analysis.widthRatio < 0.85) {
+    if (centerOffsetRatioX !== null && centerOffsetRatioX > 0.02) {
       issues.push(
-        `Warning width appears too small (width ratio: ${analysis.widthRatio.toFixed(2)}; expected approximately full width).`,
+        `Warning is not horizontally centered (center offset ratio: ${centerOffsetRatioX.toFixed(3)}; expected <= 0.02).`,
       );
     }
 
-    if (analysis.heightRatio !== null && analysis.heightRatio < 0.08) {
+    if (widthRatio !== null && widthRatio < 0.98) {
       issues.push(
-        `Warning height appears below expected prominence (height ratio: ${analysis.heightRatio.toFixed(2)}; AFM guidance targets at least 10% of ad height).`,
+        `Warning width is too small (width ratio: ${widthRatio.toFixed(3)}; expected >= 0.98 of ad/page width).`,
+      );
+    }
+
+    if (heightRatio !== null && heightRatio < 0.10) {
+      issues.push(
+        `Warning height is below legal minimum (height ratio: ${heightRatio.toFixed(3)}; expected >= 0.10).`,
+      );
+    }
+
+    if (analysis.mode !== "image" && analysis.style.fontSizePx !== null && analysis.style.fontSizePx < 9.33) {
+      issues.push(
+        `Warning text size appears below 7pt minimum (font-size: ${analysis.style.fontSizePx.toFixed(2)}px; expected >= 9.33px).`,
       );
     }
   } catch {
@@ -311,52 +552,28 @@ async function checkAFMPositioningAndSize(page: Page): Promise<string[]> {
   return issues;
 }
 
-async function checkAFMVisibilityOnScroll(page: Page): Promise<string[]> {
+async function checkAFMInitialViewportVisibility(page: Page): Promise<string[]> {
   const issues: string[] = [];
   try {
-    await analyzeAFMWarning(page);
-
-    const before = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>("[data-afm-audit-target='true']");
-      if (!target) {
-        return { found: false, inViewport: false };
-      }
-
-      const rect = target.getBoundingClientRect();
-      const inViewport = rect.top >= 0 && rect.bottom <= window.innerHeight;
-      return { found: true, inViewport };
-    });
-
-    if (!before.found) {
+    const analysis = await analyzeAFMWarning(page);
+    if (!analysis.hasWarning) {
       return issues;
     }
 
-    await page.evaluate(() => {
-      window.scrollTo({ behavior: "instant", top: Math.max(document.body.scrollHeight * 0.6, 1) });
-    });
+    const { topRatio, heightRatio } = analysis.warningGeometry;
+    const isVisible =
+      topRatio !== null &&
+      heightRatio !== null &&
+      topRatio < 1 &&
+      topRatio + heightRatio > 0;
 
-    const after = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>("[data-afm-audit-target='true']");
-      if (!target) {
-        return { inViewport: false };
-      }
-      const rect = target.getBoundingClientRect();
-      return { inViewport: rect.top >= 0 && rect.bottom <= window.innerHeight };
-    });
-
-    await page.evaluate(() => {
-      window.scrollTo({ behavior: "instant", top: 0 });
-      const target = document.querySelector<HTMLElement>("[data-afm-audit-target='true']");
-      target?.removeAttribute("data-afm-audit-target");
-    });
-
-    if (!after.inViewport) {
+    if (!isVisible) {
       issues.push(
-        "Detected warning is not continuously visible after scrolling. Review whether warning remains visible where required.",
+        `Warning is not visible in the initial viewport (topRatio: ${topRatio?.toFixed(3) ?? "n/a"}, heightRatio: ${heightRatio?.toFixed(3) ?? "n/a"}).`,
       );
     }
   } catch {
-    issues.push("Unable to verify AFM warning visibility during scrolling.");
+    issues.push("Unable to verify AFM warning visibility in the initial viewport.");
   }
   return issues;
 }
@@ -364,33 +581,104 @@ async function checkAFMVisibilityOnScroll(page: Page): Promise<string[]> {
 async function checkAFMSourceHints(page: Page): Promise<string[]> {
   const issues: string[] = [];
   try {
-    const sourceHints = await page.evaluate(() => {
-      const hints: string[] = [];
-      const images = [...document.querySelectorAll<HTMLImageElement>("img")];
+    const analysis = await analyzeAFMWarning(page);
+    if (!analysis.hasWarning) {
+      return issues;
+    }
 
-      const matching = images.filter((img) => {
-        const attrs = [img.src, img.alt, img.title, img.className, img.id].join(" ").toLowerCase();
-        return /afm|kredietwaarschuwing|lenen\s*kost\s*geld/.test(attrs);
-      });
-
-      if (matching.length === 0) {
-        hints.push(
-          "No image source/metadata hint found for AFM kredietwaarschuwing assets (afm/kredietwaarschuwing/lenen-kost-geld).",
-        );
-      }
-
-      const hasDirectText = /let\s*op!?\s*geld\s*lenen\s*kost\s*geld/i.test(
-        document.body?.textContent ?? "",
+    if (analysis.mode === "image" && !analysis.sourceHints.hasOfficialAssetHint) {
+      issues.push(
+        "Image warning found, but source could not be verified as AFM official kredietwaarschuwing material.",
       );
-      if (!hasDirectText && matching.length === 0) {
-        hints.push("Could not detect either exact warning text or clear AFM image asset hint.");
-      }
+    }
 
-      return hints;
-    });
-    issues.push(...sourceHints);
+    if (analysis.mode !== "image" && !analysis.warningText.hasFullText && !analysis.warningText.hasShortText) {
+      issues.push(
+        "Text warning mode found, but neither full nor shortened legally expected warning text could be matched.",
+      );
+    }
   } catch {
     issues.push("Unable to evaluate AFM source hints for warning assets.");
   }
+  return issues;
+}
+
+async function checkAFMFallbackTextRules(page: Page): Promise<string[]> {
+  const issues: string[] = [];
+  try {
+    const analysis = await analyzeAFMWarning(page);
+    if (!analysis.hasWarning) {
+      return issues;
+    }
+
+    if (analysis.mode === "text-full") {
+      if (!analysis.warningText.hasFullText) {
+        issues.push("Fallback full-text mode is active but exact warning text is not present.");
+      }
+
+      const { topRatio, centerOffsetRatioX, widthRatio, heightRatio } = analysis.warningGeometry;
+      if (topRatio !== null && topRatio > 0.05) {
+        issues.push("Fallback full-text warning is not placed at the top.");
+      }
+      if (centerOffsetRatioX !== null && centerOffsetRatioX > 0.02) {
+        issues.push("Fallback full-text warning is not centered.");
+      }
+      if (widthRatio !== null && widthRatio < 0.98) {
+        issues.push("Fallback full-text warning is not full width.");
+      }
+      if (heightRatio !== null && heightRatio < 0.10) {
+        issues.push("Fallback full-text warning does not meet minimum 10% height.");
+      }
+    }
+
+    if (analysis.mode === "text-short") {
+      if (!analysis.warningText.hasShortText) {
+        issues.push("Shortened warning mode is active but shortened warning text was not detected.");
+      }
+
+      const { topRatio, centerOffsetRatioX } = analysis.warningGeometry;
+      if (topRatio !== null && topRatio < 0.80) {
+        issues.push("Shortened warning text should be shown at the bottom of the ad/page.");
+      }
+
+      if (centerOffsetRatioX !== null && centerOffsetRatioX > 0.02) {
+        issues.push("Shortened warning text is not centered.");
+      }
+
+      const color = (analysis.style.color ?? "").toLowerCase();
+      const isRed = /rgb\(255,\s*0,\s*0\)|#f00|#ff0000|red/.test(color);
+      const isBlack = /rgb\(0,\s*0,\s*0\)|#000|#000000|black/.test(color);
+      if (!(isRed || isBlack)) {
+        issues.push("Shortened warning text color should be black or red.");
+      }
+
+      if ((analysis.style.fontWeight ?? 400) < 600) {
+        issues.push("Shortened warning text should be bold if possible.");
+      }
+    }
+  } catch {
+    issues.push("Unable to verify fallback text mode rules.");
+  }
+
+  return issues;
+}
+
+async function checkAFMAudioWarningRules(page: Page): Promise<string[]> {
+  const issues: string[] = [];
+  try {
+    const analysis = await analyzeAFMWarning(page);
+    if (!analysis.media.hasAudioLikeAd) {
+      return issues;
+    }
+
+    if (!analysis.media.hasWarningAudioHint) {
+      issues.push(
+        "Audio-capable ad media detected but no warning audio asset hint (e.g., kredietwaarschuwing audio) was found.",
+      );
+    }
+  } catch {
+    issues.push("Unable to verify AFM audio warning requirements.");
+  }
+
   return issues;
 }
