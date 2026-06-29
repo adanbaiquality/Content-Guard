@@ -1,25 +1,25 @@
 {
-	"name": "@content-guard/storyblok-plugin",
-	"version": "0.1.0",
-	"private": true,
-	"scripts": {
-		"dev": "next dev",
-		"build": "next build",
-		"start": "next start",
-		"lint": "next lint"
-	},
-	"dependencies": {
-		"@storyblok/app-extension-auth": "^2.2.1",
-		"jsonwebtoken": "^9.0.2",
-		"next": "13.4.19",
-		"react": "18.2.0",
-		"react-dom": "18.2.0",
-		"typescript": "5.8.3"
-	},
-	"devDependencies": {
-		"@types/jsonwebtoken": "^9.0.9",
-		"@types/node": "22.14.0",
-		"@types/react": "18.2.21",
-		"@types/react-dom": "18.2.7"
-	}
+  "name": "@content-guard/storyblok-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@storyblok/app-extension-auth": "^2.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "typescript": "5.8.3"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "22.14.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3"
+  }
 }
