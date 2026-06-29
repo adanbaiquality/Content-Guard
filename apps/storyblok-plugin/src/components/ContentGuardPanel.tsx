@@ -468,14 +468,14 @@ function CategoryTabTrigger({
     <TabsTrigger
       value={category}
       className={cn(
-        "inline-flex h-auto w-full items-center justify-between gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
+        "grid h-auto w-full grid-cols-[14px_minmax(0,1fr)_88px_8px] items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition data-[state=active]:shadow-sm",
         "bg-white/50 hover:bg-white data-[state=active]:text-current",
         styles[status],
       )}
     >
       <Image src={CATEGORY_ICONS[category]} alt="" width={14} height={14} className="opacity-75" />
-      <span className="font-bold">{CATEGORY_LABELS[category]}</span>
-      <span className="text-zinc-500">
+      <span className="min-w-0 truncate text-left font-bold">{CATEGORY_LABELS[category]}</span>
+      <span className="text-right tabular-nums text-zinc-500">
         {issueCount} issue{issueCount === 1 ? "" : "s"}
       </span>
       <span className={`h-2 w-2 rounded-full ${dotStyles[status]}`} />
