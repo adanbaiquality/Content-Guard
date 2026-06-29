@@ -12,8 +12,8 @@ export const getAppSession = async (req: NextApiRequest, res: NextApiResponse) =
 
   const appSessionQuery = inferSessionQuery(req);
   if (!appSessionQuery) {
-    return;
+    return undefined;
   }
-  await sessionStore.get(appSessionQuery);
-  return;
+
+  return await sessionStore.get(appSessionQuery);
 };
