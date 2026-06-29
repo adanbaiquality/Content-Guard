@@ -96,15 +96,19 @@ function getWcagRuleFromTags(tags: string[]): string | undefined {
 }
 
 function mapImpactToSeverity(impact: unknown): AuditResult["severity"] {
-  if (impact === "critical" || impact === "serious") {
-    return "blocking";
+  if (impact === "critical") {
+    return "critical";
   }
 
-  if (impact === "moderate" || impact === "minor") {
-    return "warning";
+  if (impact === "serious") {
+    return "serious";
   }
 
-  return "info";
+  if (impact === "moderate") {
+    return "moderate";
+  }
+
+  return "minor";
 }
 
 function mapA11yAudit(step: WorkflowStepSummary): AuditResult[] {
@@ -120,7 +124,7 @@ function mapA11yAudit(step: WorkflowStepSummary): AuditResult[] {
         category: "a11y",
         message: sourceAudit?.message || "No accessibility issues found.",
         passed: true,
-        severity: "info",
+        severity: "minor",
       },
     ];
   }
@@ -164,7 +168,7 @@ function mapAfmAudit(step: WorkflowStepSummary): AuditResult[] {
         category: "afm",
         message: sourceAudit?.message || "All readability checks passed.",
         passed: true,
-        severity: "info",
+        severity: "minor",
       },
     ];
   }
@@ -186,7 +190,12 @@ function mapAfmAudit(step: WorkflowStepSummary): AuditResult[] {
       type: violation.type,
     },
     passed: false,
-    severity: violation.severity === "error" ? "blocking" : "warning",
+    severity:
+      violation.severity === "error"
+        ? "serious"
+        : violation.severity === "warning"
+          ? "moderate"
+          : "minor",
   }));
 }
 
@@ -549,8 +558,10 @@ async function fetchAuditsFromExistingRun(): Promise<LoadedAuditsResult> {
 function getCategoryStatus(audits: AuditResult[]) {
   const failing = audits.filter((a) => !a.passed);
   if (failing.length === 0) return "pass";
-  if (failing.some((a) => a.severity === "blocking")) return "blocking";
-  return "warning";
+  if (failing.some((a) => a.severity === "critical")) return "critical";
+  if (failing.some((a) => a.severity === "serious")) return "serious";
+  if (failing.some((a) => a.severity === "moderate")) return "moderate";
+  return "minor";
 }
 
 function isAuditCategory(value: string): value is AuditCategory {
@@ -606,14 +617,18 @@ function CategoryTabTrigger({
 
   const styles = {
     pass: "border-emerald-200 text-emerald-700 data-[state=active]:bg-emerald-50",
-    blocking: "border-red-200 text-red-700 data-[state=active]:bg-red-50",
-    warning: "border-amber-200 text-amber-700 data-[state=active]:bg-amber-50",
+    critical: "border-red-200 text-red-700 data-[state=active]:bg-red-50",
+    serious: "border-orange-200 text-orange-700 data-[state=active]:bg-orange-50",
+    moderate: "border-amber-200 text-amber-700 data-[state=active]:bg-amber-50",
+    minor: "border-sky-200 text-sky-700 data-[state=active]:bg-sky-50",
   };
 
   const dotStyles = {
     pass: "bg-emerald-500",
-    blocking: "bg-red-500",
-    warning: "bg-amber-500",
+    critical: "bg-red-500",
+    serious: "bg-orange-500",
+    moderate: "bg-amber-500",
+    minor: "bg-sky-500",
   };
 
   return (
@@ -796,7 +811,6 @@ export default function ContentGuardPanel() {
             <Image src="/guard-icon.svg" alt="Content Guard" width={28} height={28} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-extrabold tracking-tight text-zinc-900">Content Guard</h1>
             {formattedLastRunAt && (
               <div
                 ref={runTooltipRef}

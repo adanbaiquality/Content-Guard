@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Copy, OctagonAlert, TriangleAlert } from "lucide-react";
+import { Check, CheckCircle2, CircleAlert, Copy, OctagonAlert, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -71,9 +71,32 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
     );
   }
 
-  const severityVariant = result.severity === "blocking" ? "destructive" : "warning";
-  const SeverityIcon = result.severity === "blocking" ? OctagonAlert : TriangleAlert;
-  const severityLabel = result.severity === "blocking" ? "Blocking" : "Warning";
+  const severityMeta = {
+    critical: {
+      icon: OctagonAlert,
+      label: "Critical",
+      variant: "destructive" as const,
+    },
+    serious: {
+      icon: TriangleAlert,
+      label: "Serious",
+      variant: "warning" as const,
+    },
+    moderate: {
+      icon: TriangleAlert,
+      label: "Moderate",
+      variant: "warning" as const,
+    },
+    minor: {
+      icon: CircleAlert,
+      label: "Minor",
+      variant: "default" as const,
+    },
+  }[result.severity];
+
+  const severityVariant = severityMeta.variant;
+  const SeverityIcon = severityMeta.icon;
+  const severityLabel = severityMeta.label;
   const promptText = buildPrompt(result, context);
 
   const copyWithFallback = async (text: string): Promise<boolean> => {

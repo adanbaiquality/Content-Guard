@@ -1,7 +1,7 @@
 export * from "./appBridge";
 
 export type AuditCategory = "a11y" | "afm" | "brand";
-export type AuditSeverity = "blocking" | "warning" | "info";
+export type AuditSeverity = "critical" | "serious" | "moderate" | "minor";
 
 export type AuditResult = {
   audit: string;

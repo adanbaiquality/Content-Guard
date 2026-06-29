@@ -20,9 +20,10 @@ type CategorySectionProps = {
 };
 
 const severityRank: Record<AuditResult["severity"], number> = {
-  blocking: 3,
-  warning: 2,
-  info: 1,
+  critical: 4,
+  serious: 3,
+  moderate: 2,
+  minor: 1,
 };
 
 function getWcagTuple(ruleId?: string): [number, number, number] | null {
@@ -46,6 +47,11 @@ function compareWcagTuple(a: [number, number, number], b: [number, number, numbe
 
 function sortAudits(audits: AuditResult[]) {
   return [...audits].sort((a, b) => {
+    const rankDelta = severityRank[b.severity] - severityRank[a.severity];
+    if (rankDelta !== 0) {
+      return rankDelta;
+    }
+
     const aWcag = getWcagTuple(a.ruleId);
     const bWcag = getWcagTuple(b.ruleId);
 
@@ -58,11 +64,6 @@ function sortAudits(audits: AuditResult[]) {
       return -1;
     } else if (!aWcag && bWcag) {
       return 1;
-    }
-
-    const rankDelta = severityRank[b.severity] - severityRank[a.severity];
-    if (rankDelta !== 0) {
-      return rankDelta;
     }
 
     return a.audit.localeCompare(b.audit);
