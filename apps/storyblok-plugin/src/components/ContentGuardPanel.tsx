@@ -234,6 +234,70 @@ function mapAfmAudit(step: WorkflowStepSummary): AuditResult[] {
   }));
 }
 
+function mapBrandAudit(step: WorkflowStepSummary): AuditResult[] {
+  const sourceAudit = step.audits[0];
+  const violations = Array.isArray(sourceAudit?.meta?.violations)
+    ? (sourceAudit.meta.violations as Array<Record<string, unknown>>)
+    : [];
+
+  if (violations.length === 0) {
+    if (!sourceAudit?.passed) {
+      return [
+        {
+          audit: "preview-style-guide-error",
+          category: "brand",
+          message: sourceAudit?.message || "Brand audit failed.",
+          meta: sourceAudit?.meta,
+          passed: false,
+          severity: "serious",
+        },
+      ];
+    }
+
+    return [
+      {
+        audit: "preview-style-guide-passed",
+        category: "brand",
+        message: sourceAudit?.message || "No brand or tone issues found.",
+        passed: true,
+        severity: "minor",
+      },
+    ];
+  }
+
+  return violations.map((violation, index) => {
+    const guideline =
+      typeof violation.guideline === "string" && violation.guideline.trim().length > 0
+        ? violation.guideline.trim()
+        : undefined;
+
+    const explanation =
+      typeof violation.explanation === "string" && violation.explanation.trim().length > 0
+        ? violation.explanation.trim()
+        : sourceAudit?.message || "Brand style guideline issue found.";
+
+    const excerpt =
+      typeof violation.excerpt === "string" && violation.excerpt.trim().length > 0
+        ? violation.excerpt.trim()
+        : undefined;
+
+    return {
+      audit: `preview-style-guide-${index}`,
+      category: "brand",
+      current: excerpt,
+      message: explanation,
+      meta: {
+        excerpt: violation.excerpt,
+        explanation: violation.explanation,
+        guideline: violation.guideline,
+      },
+      passed: false,
+      ruleId: guideline,
+      severity: "moderate",
+    } satisfies AuditResult;
+  });
+}
+
 function mapWorkflowOutputToAudits(output: WorkflowOutput | undefined): AuditResult[] {
   if (!output) {
     return [];
@@ -250,6 +314,11 @@ function mapWorkflowOutputToAudits(output: WorkflowOutput | undefined): AuditRes
   const afmStep = steps.find((step) => step.name === "preview-afm");
   if (afmStep) {
     audits.push(...mapAfmAudit(afmStep));
+  }
+
+  const brandStep = steps.find((step) => step.name === "preview-style-guide");
+  if (brandStep) {
+    audits.push(...mapBrandAudit(brandStep));
   }
 
   return audits;
@@ -938,7 +1007,6 @@ export default function ContentGuardPanel() {
             <CategorySection
               category={activeCategory}
               audits={activeAudits}
-              settingsUrl={activeCategory === "brand" ? mockCategorySettingsLinks.brand : undefined}
             />
           </div>
         </>
