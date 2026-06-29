@@ -1,4 +1,5 @@
 import { APP_BRIDGE_TOKEN_HEADER_KEY, KEY_TOKEN } from '@/utils/const';
+import { getApiBaseUrl } from '@/utils/api';
 import { useEffect, useState } from 'react';
 
 export default function Example() {
@@ -7,11 +8,12 @@ export default function Example() {
 	});
 	useEffect(() => {
 		const fetchTestInfo = async () => {
-			const response = await fetch('/api/example', {
+			const response = await fetch(`${getApiBaseUrl()}/api/example`, {
 				headers: {
 					[APP_BRIDGE_TOKEN_HEADER_KEY]:
 						sessionStorage.getItem(KEY_TOKEN) || '',
 				},
+				credentials: 'include',
 			});
 			const json = await response.json();
 			setTestInfo(json);

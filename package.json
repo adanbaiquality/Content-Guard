@@ -1,25 +1,21 @@
 {
-	"name": "tool-nextjs-starter",
+	"name": "@content-guard/workspace",
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "next dev",
-		"build": "next build",
-		"start": "next start",
-		"lint": "next lint"
-	},
-	"dependencies": {
-		"@storyblok/app-extension-auth": "^2.2.1",
-		"jsonwebtoken": "^9.0.2",
-		"next": "13.4.19",
-		"react": "18.2.0",
-		"react-dom": "18.2.0",
-		"typescript": "5.8.3"
+		"dev": "concurrently -n plugin,api -c cyan,magenta \"pnpm --filter @content-guard/storyblok-plugin dev\" \"pnpm --filter @content-guard/api dev\"",
+		"dev:plugin": "pnpm --filter @content-guard/storyblok-plugin dev",
+		"dev:api": "pnpm --filter @content-guard/api dev",
+		"build": "pnpm --filter @content-guard/storyblok-plugin build && pnpm --filter @content-guard/api build",
+		"build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
+		"build:api": "pnpm --filter @content-guard/api build",
+		"lint": "pnpm --filter @content-guard/storyblok-plugin lint"
 	},
 	"devDependencies": {
-		"@types/jsonwebtoken": "^9.0.9",
-		"@types/node": "22.14.0",
-		"@types/react": "18.2.21",
-		"@types/react-dom": "18.2.7"
+		"concurrently": "^9.1.2"
+	},
+	"engines": {
+		"pnpm": "11",
+		"node": "24"
 	}
 }
