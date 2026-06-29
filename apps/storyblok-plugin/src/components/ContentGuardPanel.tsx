@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { mockCategorySettingsLinks } from "@/mocks/auditResults";
 import { type AuditCategory, type AuditResult } from "@/types";
 import { getApiBaseUrl } from "@/utils/api";
-import { APP_BRIDGE_ORIGIN, KEY_SLUG } from "@/utils/const";
+import { APP_BRIDGE_ORIGIN, KEY_PARENT_HOST, KEY_SLUG, KEY_VALIDATED_PAYLOAD } from "@/utils/const";
 
 const CATEGORIES: AuditCategory[] = ["a11y", "afm", "brand"];
 
@@ -352,54 +352,132 @@ function resolveSlug() {
   return sessionStorage.getItem(KEY_SLUG) || new URLSearchParams(window.location.search).get("slug");
 }
 
+function readQueryValue(params: URLSearchParams, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const raw = params.get(key);
+    if (!raw) {
+      continue;
+    }
+
+    const value = raw.trim();
+    if (value.length > 0) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function resolveSpaceIdFromValidatedPayload(): string | undefined {
+  try {
+    const raw = sessionStorage.getItem(KEY_VALIDATED_PAYLOAD);
+    if (!raw) {
+      return undefined;
+    }
+
+    const payload = JSON.parse(raw) as { space_id?: number | string };
+    if (payload.space_id === undefined || payload.space_id === null) {
+      return undefined;
+    }
+
+    const spaceId = String(payload.space_id).trim();
+    return spaceId.length > 0 ? spaceId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveParentHostForPostMessage(): string {
+  const storedParentHost = sessionStorage.getItem(KEY_PARENT_HOST);
+  if (storedParentHost) {
+    return storedParentHost;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const protocol = params.get("protocol");
+  const host = params.get("host");
+  if (protocol && host) {
+    return `${protocol}//${host}`;
+  }
+
+  return "*";
+}
+
 async function requestStoryContext(): Promise<StoryContext> {
   const params = new URLSearchParams(window.location.search);
-  const spaceIdFromQuery =
-    params.get("space_id") ?? params.get("_storyblok_tk[space_id]") ?? undefined;
-  const storyIdFromQuery =
-    params.get("story_id") ??
-    params.get("storyId") ??
-    params.get("id") ??
-    params.get("_storyblok") ??
-    undefined;
+  const spaceIdFromQuery = readQueryValue(params, [
+    "space_id",
+    "spaceId",
+    "spaceid",
+    "_storyblok_tk[space_id]",
+    "_storyblok_tk[spaceid]",
+  ]);
+  const storyIdFromQuery = readQueryValue(params, [
+    "story_id",
+    "storyId",
+    "storyid",
+    "id",
+    "_storyblok",
+    "_storyblok_tk[story_id]",
+    "_storyblok_tk[storyid]",
+  ]);
+  const spaceIdFromSession = resolveSpaceIdFromValidatedPayload();
 
   if (storyIdFromQuery) {
-    return { spaceId: spaceIdFromQuery, storyId: storyIdFromQuery };
+    return { spaceId: spaceIdFromQuery ?? spaceIdFromSession, storyId: storyIdFromQuery };
   }
 
   const slug = resolveSlug();
   if (!slug || window.top === window.self) {
-    return { spaceId: spaceIdFromQuery };
+    return { spaceId: spaceIdFromQuery ?? spaceIdFromSession };
   }
 
   return await new Promise<StoryContext>((resolve) => {
     const timeoutId = window.setTimeout(() => {
       window.removeEventListener("message", onMessage);
-      resolve({ spaceId: spaceIdFromQuery });
+      resolve({ spaceId: spaceIdFromQuery ?? spaceIdFromSession });
     }, 2200);
 
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== APP_BRIDGE_ORIGIN) {
+      const parentHost = resolveParentHostForPostMessage();
+      const allowedOrigin = parentHost !== "*" ? parentHost : APP_BRIDGE_ORIGIN;
+      if (event.origin !== APP_BRIDGE_ORIGIN && event.origin !== allowedOrigin) {
         return;
       }
 
       const data = event.data as {
         action?: string;
+        event?: string;
+        id?: number | string;
         space_id?: number | string;
         spaceId?: number | string;
+        spaceid?: number | string;
+        story_id?: number | string;
+        storyId?: number | string;
+        storyid?: number | string;
         story?: { id?: number | string };
       };
 
-      if (data.action !== "get-context") {
+      const hasContextPayload = Boolean(
+        data.story?.id || data.story_id || data.storyId || data.storyid || data.id,
+      );
+      if (!hasContextPayload && data.action !== "get-context" && data.event !== "get-context") {
         return;
       }
 
       window.clearTimeout(timeoutId);
       window.removeEventListener("message", onMessage);
 
+      const resolvedSpaceId = String(
+        data.space_id ?? data.spaceId ?? data.spaceid ?? spaceIdFromQuery ?? spaceIdFromSession ?? "",
+      ).trim();
+      const resolvedStoryId = String(
+        data.story?.id ?? data.story_id ?? data.storyId ?? data.storyid ?? data.id ?? "",
+      ).trim();
+
       resolve({
-        spaceId: String(data.space_id ?? data.spaceId ?? spaceIdFromQuery ?? "") || undefined,
-        storyId: String(data.story?.id ?? "") || undefined,
+        spaceId: resolvedSpaceId || undefined,
+        storyId: resolvedStoryId || undefined,
       });
     };
 
@@ -410,7 +488,7 @@ async function requestStoryContext(): Promise<StoryContext> {
         event: "getContext",
         tool: slug,
       },
-      "*",
+      resolveParentHostForPostMessage(),
     );
   });
 }

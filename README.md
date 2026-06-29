@@ -12,6 +12,11 @@ This repository is now a **pnpm monorepo** with:
 - `apps/storyblok-plugin`: Storyblok plugin app
 - `apps/api`: Nitro API service
 
+## Production URLs
+
+- Frontend (Storyblok plugin): https://cute-torrone-36f67a.netlify.app/
+- API (Nitro backend): https://playful-fenglisu-c02423.netlify.app/
+
 ## Environment setup
 
 1. Copy `apps/storyblok-plugin/.env.local.example` to `apps/storyblok-plugin/.env.local` for Next.js local env.
