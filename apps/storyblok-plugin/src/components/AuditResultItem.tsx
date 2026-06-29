@@ -4,10 +4,26 @@ import { type AuditResult } from "@/types";
 import { Badge } from "@/components/ui/Badge";
 
 const STORYBLOK_MCP_URL = "https://www.storyblok.com/mp/storyblok-mcp-server";
+const WCAG22_QUICKREF_URL = "https://www.w3.org/WAI/WCAG22/quickref/";
+
+const WCAG22_RULE_ANCHORS: Record<string, string> = {
+  "1.3.1": "info-and-relationships",
+  "2.4.4": "link-purpose-in-context",
+};
 
 type AuditResultItemProps = {
   result: AuditResult;
 };
+
+function getWcagRuleUrl(ruleId: string): string {
+  const wcagNumber = ruleId.match(/(\d+\.\d+\.\d+)/)?.[1];
+  if (!wcagNumber) {
+    return WCAG22_QUICKREF_URL;
+  }
+
+  const anchor = WCAG22_RULE_ANCHORS[wcagNumber];
+  return anchor ? `${WCAG22_QUICKREF_URL}#${anchor}` : WCAG22_QUICKREF_URL;
+}
 
 export default function AuditResultItem({ result }: AuditResultItemProps) {
   const [copied, setCopied] = useState(false);
@@ -59,9 +75,15 @@ export default function AuditResultItem({ result }: AuditResultItemProps) {
           {severityLabel}
         </Badge>
         {result.ruleId && (
-          <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+          <a
+            href={getWcagRuleUrl(result.ruleId)}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600 underline-offset-2 hover:text-zinc-800 hover:underline"
+            title="Open this WCAG 2.2 success criterion"
+          >
             {result.ruleId}
-          </span>
+          </a>
         )}
       </div>
 
