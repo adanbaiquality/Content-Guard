@@ -7,6 +7,7 @@ import {
   runStoryblokReviewingAudits,
   runStoryblokReviewingAuditsInline,
 } from "../../../../../workflows/storyblok-reviewing-audits.ts";
+import { rememberLatestRunId } from "../../../../utils/workflow-run-cache.ts";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 const LOCAL_WORKFLOW_RUN_ID_PREFIX = "local-run";
@@ -98,6 +99,8 @@ export default defineEventHandler(async (event) => {
       "Running workflow inline on Windows dev to avoid workflow engine crash. Set CONTENT_GUARD_FORCE_WORKFLOW_ENGINE=1 to force engine mode.",
     );
 
+    rememberLatestRunId({ runId, spaceId, storyId });
+
     return { ok: true, runId, spaceId, storyId };
   }
 
@@ -106,6 +109,10 @@ export default defineEventHandler(async (event) => {
     (run as { id?: string; runId?: string }).id ?? (run as { id?: string; runId?: string }).runId;
 
   logger.debug({ runId, storyId }, "Workflow started successfully");
+
+  if (runId) {
+    rememberLatestRunId({ runId, spaceId, storyId });
+  }
 
   return { ok: true, runId, spaceId, storyId };
 });
