@@ -149,7 +149,7 @@ export default function ContentGuardPanel() {
   const activeAudits = byCategory[activeCategory];
 
   return (
-    <section className="mx-auto w-full max-w-4xl space-y-5 rounded-2xl border border-[var(--cg-border)] bg-white/80 p-5 shadow-lg shadow-zinc-200/40 backdrop-blur-sm sm:p-6">
+    <section className="w-full space-y-5 rounded-2xl border border-[var(--cg-border)] bg-white/80 shadow-lg shadow-zinc-200/40 backdrop-blur-sm">
       {/* Header */}
       <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-[linear-gradient(130deg,#ebf8ef_0%,#faf8ec_100%)] px-4 py-3.5">
         <div className="rounded-lg border border-emerald-200 bg-white p-1.5">
