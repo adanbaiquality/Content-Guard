@@ -10,7 +10,7 @@
     "build": "pnpm --filter @content-guard/storyblok-plugin build && pnpm --filter @content-guard/api build",
     "build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
     "build:api": "pnpm --filter @content-guard/api build",
-    "tunnel": "devtunnel host",
+    "tunnel": "node ./scripts/tunnel.js",
     "lint": "oxlint --type-aware",
     "lint:check": "oxlint --deny-warnings --type-aware",
     "lint:fix": "oxlint --fix --type-aware",

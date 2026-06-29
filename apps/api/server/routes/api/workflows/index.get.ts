@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { defineEventHandler } from "h3";
 import { parseWorkflowName } from "workflow/observability";
 
+import logger from "../../../utils/logger.ts";
 import { resolvePublicRunId } from "../../../utils/workflow-run-cache.ts";
 import { listPersistedWorkflowRunOutputs } from "../../../utils/workflow-run-output-store.ts";
 
@@ -139,11 +140,15 @@ const readWorkflowRunsFromDirectory = async (
 };
 
 export default defineEventHandler(async () => {
+  logger.info("[Workflows/List] Request received");
+  
   const [runDirectoryRecords, outputDirectoryRecords, sqliteOutputRecords] = await Promise.all([
     readWorkflowRunsFromDirectory(RUNS_DIRECTORY, readRunRecord),
     readWorkflowRunsFromDirectory(OUTPUTS_DIRECTORY, readOutputRecord),
     listPersistedWorkflowRunOutputs(),
   ]);
+
+  logger.info({ runDirectoryCount: runDirectoryRecords.length, outputDirectoryCount: outputDirectoryRecords.length, sqliteCount: sqliteOutputRecords.length }, "[Workflows/List] Records loaded");
 
   const runsByRunId = new Map<string, WorkflowRunListItem>();
 
@@ -171,6 +176,8 @@ export default defineEventHandler(async () => {
   }
 
   const runs = Array.from(runsByRunId.values()).sort(sortByNewestFirst);
+
+  logger.info({ total: runs.length }, "[Workflows/List] Returning results");
 
   return {
     ok: true,

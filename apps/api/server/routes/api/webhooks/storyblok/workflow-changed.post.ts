@@ -169,9 +169,10 @@ const trackWorkflowEngineRun = async (params: {
 };
 
 export default defineEventHandler(async (event) => {
-  logger.debug("Incoming webhook request received");
+  logger.info("[Webhook/Storyblok] Incoming webhook request received");
 
   const body = await readBody<unknown>(event).catch(() => undefined);
+  logger.info({ body }, "[Webhook/Storyblok] Body received");
 
   let validatedInput: z.infer<typeof WebhookBodySchema>;
 
@@ -182,11 +183,13 @@ export default defineEventHandler(async (event) => {
       const fieldErrors = error.issues
         .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
         .join("; ");
+      logger.info({ fieldErrors }, "[Webhook/Storyblok] Invalid webhook body");
       throw new HTTPError({
         message: `Invalid webhook body: ${fieldErrors}`,
         status: HTTP_STATUS_BAD_REQUEST,
       });
     }
+    logger.info("[Webhook/Storyblok] Invalid webhook body format");
     throw new HTTPError({
       message: "Invalid webhook body.",
       status: HTTP_STATUS_BAD_REQUEST,
@@ -200,7 +203,7 @@ export default defineEventHandler(async (event) => {
     timestamp ?? String(Math.floor(Date.now() / 1_000)),
   );
 
-  logger.debug({ publicRunId, spaceId, storyId, timestamp }, "Starting storyblok reviewing audits workflow");
+  logger.info({ publicRunId, spaceId, storyId, timestamp }, "[Webhook/Storyblok] Starting storyblok reviewing audits workflow");
 
   const runId = publicRunId;
 
@@ -209,7 +212,7 @@ export default defineEventHandler(async (event) => {
     const workflowRunId =
       (run as { id?: string; runId?: string }).id ?? (run as { id?: string; runId?: string }).runId;
 
-    logger.debug({ runId, storyId, timestamp, workflowRunId }, "Workflow started successfully");
+    logger.info({ runId, storyId, timestamp, workflowRunId }, "[Webhook/Storyblok] Workflow started successfully");
 
     rememberLatestRunId({ publicRunId: runId, spaceId, storyId, workflowRunId });
 
@@ -221,7 +224,7 @@ export default defineEventHandler(async (event) => {
             runId,
             workflowRunId,
           },
-          "Failed to persist workflow engine run output",
+          "[Webhook/Storyblok] Failed to persist workflow engine run output",
         );
       });
     }
@@ -229,9 +232,9 @@ export default defineEventHandler(async (event) => {
     return { ok: true, runId, spaceId, storyId, timestamp };
   }
 
-  logger.debug(
+  logger.info(
     { runId, spaceId, storyId, timestamp },
-    "Workflow engine disabled; running Storyblok reviewing audits inline",
+    "[Webhook/Storyblok] Workflow engine disabled; running Storyblok reviewing audits inline",
   );
 
   const createdAt = new Date().toISOString();
@@ -251,10 +254,13 @@ export default defineEventHandler(async (event) => {
       }),
     );
 
+    logger.info({ runId, storyId, spaceId }, "[Webhook/Storyblok] Inline workflow completed successfully");
     rememberLatestRunId({ publicRunId: runId, spaceId, storyId });
 
     return { ok: true, runId, spaceId, storyId, timestamp };
   } catch (error) {
+    logger.error({ runId, storyId, spaceId, error: toErrorMessage(error) }, "[Webhook/Storyblok] Inline workflow failed");
+    
     await persistWorkflowRunOutputSafely(
       createWorkflowRunResponse({
         createdAt,

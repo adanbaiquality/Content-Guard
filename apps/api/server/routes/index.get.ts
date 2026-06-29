@@ -1,6 +1,9 @@
 import { defineEventHandler } from "h3";
+import logger from "../utils/logger.ts";
 
-export default defineEventHandler(() => ({
+export default defineEventHandler(() => {
+  logger.info("[API] Root route accessed");
+  return {
   routes: [
     { method: "GET", path: "/api/health" },
     { method: "GET", path: "/api/workflows" },
@@ -10,4 +13,5 @@ export default defineEventHandler(() => ({
   ],
   ok: true,
   service: "@content-guard/api",
-}));
+  };
+});

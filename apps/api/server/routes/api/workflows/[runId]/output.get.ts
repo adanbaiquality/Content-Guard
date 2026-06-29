@@ -179,8 +179,10 @@ const fetchWorkflowRunData = async (runId: string): Promise<WorkflowRunOutputRes
 
 export default defineEventHandler(async (event) => {
   const runId = getRouterParam(event, "runId")?.trim();
+  logger.info({ runId }, "[Workflows/Output] Request received");
 
   if (!runId) {
+    logger.info("[Workflows/Output] Missing runId parameter");
     throw new HTTPError({
       message: "Missing workflow runId in route params.",
       status: HTTP_STATUS_BAD_REQUEST,
@@ -188,6 +190,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    logger.info({ runId }, "[Workflows/Output] Fetching workflow run data");
     const response = await fetchWorkflowRunData(runId);
     const normalizedResponse: WorkflowRunOutputResponse = {
       ...response,
@@ -195,10 +198,13 @@ export default defineEventHandler(async (event) => {
     };
 
     await persistWorkflowRunDataSafely(normalizedResponse);
+    logger.info({ runId, status: response.status }, "[Workflows/Output] Successfully returning workflow output");
     return normalizedResponse;
   } catch (error) {
+    logger.info({ runId, error: resolveErrorMessage(error) }, "[Workflows/Output] Error fetching fresh data, trying persisted");
     const persistedResponse = await fetchPersistedWorkflowRunData(runId);
     if (persistedResponse) {
+      logger.info({ runId, status: persistedResponse.status }, "[Workflows/Output] Returning persisted workflow output");
       return {
         ...persistedResponse,
         output: normalizeOutputSummary(persistedResponse.output),
@@ -206,12 +212,14 @@ export default defineEventHandler(async (event) => {
     }
 
     if (WorkflowRunNotFoundError.is(error)) {
+      logger.info({ runId }, "[Workflows/Output] Workflow run not found");
       throw new HTTPError({
         message: `Workflow run '${runId}' not found.`,
         status: HTTP_STATUS_NOT_FOUND,
       });
     }
 
+    logger.info({ runId, error: resolveErrorMessage(error) }, "[Workflows/Output] Error loading workflow");
     throw new HTTPError({
       message: resolveErrorMessage(error),
       status: HTTP_STATUS_INTERNAL_SERVER_ERROR,
