@@ -1,8 +1,8 @@
-import { defineEventHandler } from 'h3';
+import { defineEventHandler } from "h3";
 
 export default defineEventHandler(() => {
-	return {
-		ok: true,
-		service: '@content-guard/api',
-	};
+  return {
+    ok: true,
+    service: "@content-guard/api",
+  };
 });

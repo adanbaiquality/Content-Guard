@@ -1,2 +1,2 @@
-export * from './appBridge';
-export * from './oauth';
+export * from "./appBridge";
+export * from "./oauth";

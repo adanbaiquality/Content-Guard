@@ -1,25 +1,25 @@
 {
-	"name": "@content-guard/workspace",
-	"version": "0.1.0",
-	"private": true,
-	"scripts": {
-		"dev": "concurrently -n plugin,api -c cyan,magenta \"pnpm --filter @content-guard/storyblok-plugin dev\" \"pnpm --filter @content-guard/api dev\"",
-		"dev:plugin": "pnpm --filter @content-guard/storyblok-plugin dev",
-		"dev:api": "pnpm --filter @content-guard/api dev",
-		"build": "pnpm --filter @content-guard/storyblok-plugin build && pnpm --filter @content-guard/api build",
-		"build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
-		"build:api": "pnpm --filter @content-guard/api build",
-		"lint": "pnpm --filter @content-guard/storyblok-plugin lint",
-		"fmt": "oxfmt",
-		"fmt:check": "oxfmt --check"
-	},
-	"devDependencies": {
-		"concurrently": "^9.1.2",
-		"oxfmt": "^0.56.0"
-	},
-	"engines": {
-		"pnpm": "11",
-		"node": "24"
-	},
-	"packageManager": "pnpm@11.9.0+sha512.bd682d5d03fe525ef7c9fd6780c6884d1e756ac4c9c9fe00c538782824310dcf90e3ddc4f53835f06dfaebd5085e41855e0bcbb3b60de2ac5bbab89e5036f03b"
+  "name": "@content-guard/workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n plugin,api -c cyan,magenta \"pnpm --filter @content-guard/storyblok-plugin dev\" \"pnpm --filter @content-guard/api dev\"",
+    "dev:plugin": "pnpm --filter @content-guard/storyblok-plugin dev",
+    "dev:api": "pnpm --filter @content-guard/api dev",
+    "build": "pnpm --filter @content-guard/storyblok-plugin build && pnpm --filter @content-guard/api build",
+    "build:plugin": "pnpm --filter @content-guard/storyblok-plugin build",
+    "build:api": "pnpm --filter @content-guard/api build",
+    "lint": "pnpm --filter @content-guard/storyblok-plugin lint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "oxfmt": "^0.56.0"
+  },
+  "engines": {
+    "node": "24",
+    "pnpm": "11"
+  },
+  "packageManager": "pnpm@11.9.0+sha512.bd682d5d03fe525ef7c9fd6780c6884d1e756ac4c9c9fe00c538782824310dcf90e3ddc4f53835f06dfaebd5085e41855e0bcbb3b60de2ac5bbab89e5036f03b"
 }

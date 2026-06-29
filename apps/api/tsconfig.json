@@ -1,18 +1,18 @@
 {
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"types": ["node"],
-		"plugins": [
-			{
-				"name": "workflow"
-			}
-		]
-	},
-	"include": ["nitro.config.ts", "server/**/*.ts", "workflows/**/*.ts"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "plugins": [
+      {
+        "name": "workflow"
+      }
+    ]
+  },
+  "include": ["nitro.config.ts", "server/**/*.ts", "workflows/**/*.ts"]
 }

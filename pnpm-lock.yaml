@@ -17,6 +17,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.1
       h3:
         specifier: ^2.0.1-rc.4
         version: 2.0.1-rc.22(crossws@0.4.6(srvx@0.11.17))
@@ -25,7 +28,7 @@ importers:
         version: 7.6.1
       workflow:
         specifier: ^4.5.0
-        version: 4.5.0(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)(next@16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.8.3)
+        version: 4.5.0(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.1)(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)(next@16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.8.3)
     devDependencies:
       '@types/node':
         specifier: 22.14.0
@@ -50,7 +53,7 @@ importers:
         version: 9.0.2
       next:
         specifier: 16.2.9
-        version: 16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -715,6 +718,10 @@ packages:
   '@oclif/plugin-help@6.2.37':
     resolution: {integrity: sha512-5N/X/FzlJaYfpaHwDC0YHzOzKDWa41s9t+4FpCDu4f9OMReds4JeNBaaWk9rlIzdKjh2M6AC5Q18ORfECRkHGA==}
     engines: {node: '>=18.0.0'}
+
+  '@opentelemetry/api@1.9.1':
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
 
   '@oxc-project/types@0.137.0':
     resolution: {integrity: sha512-WT+Gb24i8hmvo85AIv2oEYouEXkRlKAlT9WaCa3TfLgNCN+GhrJOGZuIlMouAh38Qe4QOx26eUOVsq70qXrywA==}
@@ -3673,6 +3680,8 @@ snapshots:
     dependencies:
       '@oclif/core': 4.11.4
 
+  '@opentelemetry/api@1.9.1': {}
+
   '@oxc-project/types@0.137.0': {}
 
   '@oxfmt/binding-android-arm-eabi@0.56.0':
@@ -4065,13 +4074,13 @@ snapshots:
       mixpart: 0.0.6
       picocolors: 1.1.1
 
-  '@workflow/astro@4.0.10':
+  '@workflow/astro@4.0.10(@opentelemetry/api@1.9.1)':
     dependencies:
       '@swc/core': 1.15.3
-      '@workflow/builders': 4.1.0
-      '@workflow/rollup': 4.0.10
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
+      '@workflow/rollup': 4.0.10(@opentelemetry/api@1.9.1)
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
-      '@workflow/vite': 4.0.10
+      '@workflow/vite': 4.0.10(@opentelemetry/api@1.9.1)
       exsolve: 1.1.0
       pathe: 2.0.3
     transitivePeerDependencies:
@@ -4080,10 +4089,10 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/builders@4.1.0':
+  '@workflow/builders@4.1.0(@opentelemetry/api@1.9.1)':
     dependencies:
       '@swc/core': 1.15.3
-      '@workflow/core': 4.5.0
+      '@workflow/core': 4.5.0(@opentelemetry/api@1.9.1)
       '@workflow/errors': 4.1.4
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
       '@workflow/utils': 4.1.3
@@ -4100,21 +4109,21 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/cli@4.2.10(supports-color@8.1.1)':
+  '@workflow/cli@4.2.10(@opentelemetry/api@1.9.1)(supports-color@8.1.1)':
     dependencies:
       '@oclif/core': 4.11.4
       '@oclif/plugin-help': 6.2.37
       '@swc/core': 1.15.3
       '@vercel/cli-auth': 0.0.1
-      '@workflow/builders': 4.1.0
-      '@workflow/core': 4.5.0
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
+      '@workflow/core': 4.5.0(@opentelemetry/api@1.9.1)
       '@workflow/errors': 4.1.4
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
       '@workflow/utils': 4.1.3
       '@workflow/web': 4.1.11(supports-color@8.1.1)
       '@workflow/world': 4.2.0(zod@4.3.6)
-      '@workflow/world-local': 4.2.0
-      '@workflow/world-vercel': 4.4.1
+      '@workflow/world-local': 4.2.0(@opentelemetry/api@1.9.1)
+      '@workflow/world-vercel': 4.4.1(@opentelemetry/api@1.9.1)
       boxen: 8.0.1
       builtin-modules: 5.0.0
       chalk: 5.6.2
@@ -4138,7 +4147,7 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/core@4.5.0':
+  '@workflow/core@4.5.0(@opentelemetry/api@1.9.1)':
     dependencies:
       '@aws-sdk/credential-provider-web-identity': 3.972.49
       '@jridgewell/trace-mapping': 0.3.31
@@ -4149,8 +4158,8 @@ snapshots:
       '@workflow/serde': 4.1.2
       '@workflow/utils': 4.1.3
       '@workflow/world': 4.2.0(zod@4.3.6)
-      '@workflow/world-local': 4.2.0
-      '@workflow/world-vercel': 4.4.1
+      '@workflow/world-local': 4.2.0(@opentelemetry/api@1.9.1)
+      '@workflow/world-vercel': 4.4.1(@opentelemetry/api@1.9.1)
       debug: 4.4.3(supports-color@8.1.1)
       devalue: 5.8.1
       ms: 2.1.3
@@ -4159,6 +4168,8 @@ snapshots:
       semver: 7.7.4
       ulid: 3.0.2
       zod: 4.3.6
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
     transitivePeerDependencies:
       - supports-color
       - ws
@@ -4168,13 +4179,13 @@ snapshots:
       '@workflow/utils': 4.1.3
       ms: 2.1.3
 
-  '@workflow/nest@0.0.10(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)':
+  '@workflow/nest@0.0.10(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.1)(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)':
     dependencies:
       '@nestjs/common': 11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core': 11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@swc/cli': 0.8.1(@swc/core@1.15.3)(chokidar@5.0.0)
       '@swc/core': 1.15.3
-      '@workflow/builders': 4.1.0
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
       pathe: 2.0.3
     transitivePeerDependencies:
@@ -4183,30 +4194,30 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/next@4.0.11(next@16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7))':
+  '@workflow/next@4.0.11(@opentelemetry/api@1.9.1)(next@16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))':
     dependencies:
       '@swc/core': 1.15.3
-      '@workflow/builders': 4.1.0
-      '@workflow/core': 4.5.0
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
+      '@workflow/core': 4.5.0(@opentelemetry/api@1.9.1)
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
       semver: 7.7.4
       watchpack: 2.5.1
     optionalDependencies:
-      next: 16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      next: 16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@swc/helpers'
       - supports-color
       - ws
 
-  '@workflow/nitro@4.1.1':
+  '@workflow/nitro@4.1.1(@opentelemetry/api@1.9.1)':
     dependencies:
       '@swc/core': 1.15.3
-      '@workflow/builders': 4.1.0
-      '@workflow/core': 4.5.0
-      '@workflow/rollup': 4.0.10
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
+      '@workflow/core': 4.5.0(@opentelemetry/api@1.9.1)
+      '@workflow/rollup': 4.0.10(@opentelemetry/api@1.9.1)
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
-      '@workflow/vite': 4.0.10
+      '@workflow/vite': 4.0.10(@opentelemetry/api@1.9.1)
       '@workflow/web': 4.1.11(supports-color@8.1.1)
       exsolve: 1.0.8
       pathe: 2.0.3
@@ -4216,10 +4227,10 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/nuxt@4.0.11':
+  '@workflow/nuxt@4.0.11(@opentelemetry/api@1.9.1)':
     dependencies:
       '@nuxt/kit': 4.4.7
-      '@workflow/nitro': 4.1.1
+      '@workflow/nitro': 4.1.1(@opentelemetry/api@1.9.1)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@swc/helpers'
@@ -4227,10 +4238,10 @@ snapshots:
       - supports-color
       - ws
 
-  '@workflow/rollup@4.0.10':
+  '@workflow/rollup@4.0.10(@opentelemetry/api@1.9.1)':
     dependencies:
       '@swc/core': 1.15.3
-      '@workflow/builders': 4.1.0
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
       exsolve: 1.0.7
     transitivePeerDependencies:
@@ -4241,13 +4252,13 @@ snapshots:
 
   '@workflow/serde@4.1.2': {}
 
-  '@workflow/sveltekit@4.0.10':
+  '@workflow/sveltekit@4.0.10(@opentelemetry/api@1.9.1)':
     dependencies:
       '@swc/core': 1.15.3
-      '@workflow/builders': 4.1.0
-      '@workflow/rollup': 4.0.10
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
+      '@workflow/rollup': 4.0.10(@opentelemetry/api@1.9.1)
       '@workflow/swc-plugin': 4.1.1(@swc/core@1.15.3)
-      '@workflow/vite': 4.0.10
+      '@workflow/vite': 4.0.10(@opentelemetry/api@1.9.1)
       exsolve: 1.1.0
       fs-extra: 11.3.5
       pathe: 2.0.3
@@ -4269,9 +4280,9 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  '@workflow/vite@4.0.10':
+  '@workflow/vite@4.0.10(@opentelemetry/api@1.9.1)':
     dependencies:
-      '@workflow/builders': 4.1.0
+      '@workflow/builders': 4.1.0(@opentelemetry/api@1.9.1)
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@swc/helpers'
@@ -4284,7 +4295,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@workflow/world-local@4.2.0':
+  '@workflow/world-local@4.2.0(@opentelemetry/api@1.9.1)':
     dependencies:
       '@vercel/queue': 0.3.1
       '@workflow/errors': 4.1.4
@@ -4294,8 +4305,10 @@ snapshots:
       ulid: 3.0.2
       undici: 7.26.0
       zod: 4.3.6
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
 
-  '@workflow/world-vercel@4.4.1':
+  '@workflow/world-vercel@4.4.1(@opentelemetry/api@1.9.1)':
     dependencies:
       '@vercel/oidc': 3.2.0
       '@vercel/queue': 0.3.1
@@ -4304,6 +4317,8 @@ snapshots:
       cbor-x: 1.6.0
       undici: 7.26.0
       zod: 4.3.6
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
 
   '@workflow/world@4.2.0(zod@4.3.6)':
     dependencies:
@@ -5274,7 +5289,7 @@ snapshots:
 
   negotiator@1.0.0: {}
 
-  next@16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
+  next@16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
       '@next/env': 16.2.9
       '@swc/helpers': 0.5.15
@@ -5293,6 +5308,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 16.2.9
       '@next/swc-win32-arm64-msvc': 16.2.9
       '@next/swc-win32-x64-msvc': 16.2.9
+      '@opentelemetry/api': 1.9.1
       sharp: 0.34.5
     transitivePeerDependencies:
       - '@babel/core'
@@ -6019,21 +6035,23 @@ snapshots:
 
   wordwrap@1.0.0: {}
 
-  workflow@4.5.0(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)(next@16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.8.3):
+  workflow@4.5.0(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.1)(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)(next@16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.8.3):
     dependencies:
-      '@workflow/astro': 4.0.10
-      '@workflow/cli': 4.2.10(supports-color@8.1.1)
-      '@workflow/core': 4.5.0
+      '@workflow/astro': 4.0.10(@opentelemetry/api@1.9.1)
+      '@workflow/cli': 4.2.10(@opentelemetry/api@1.9.1)(supports-color@8.1.1)
+      '@workflow/core': 4.5.0(@opentelemetry/api@1.9.1)
       '@workflow/errors': 4.1.4
-      '@workflow/nest': 0.0.10(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)
-      '@workflow/next': 4.0.11(next@16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7))
-      '@workflow/nitro': 4.1.1
-      '@workflow/nuxt': 4.0.11
-      '@workflow/rollup': 4.0.10
-      '@workflow/sveltekit': 4.0.10
+      '@workflow/nest': 0.0.10(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27(@nestjs/common@11.1.27(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.1)(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)
+      '@workflow/next': 4.0.11(@opentelemetry/api@1.9.1)(next@16.2.9(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))
+      '@workflow/nitro': 4.1.1(@opentelemetry/api@1.9.1)
+      '@workflow/nuxt': 4.0.11(@opentelemetry/api@1.9.1)
+      '@workflow/rollup': 4.0.10(@opentelemetry/api@1.9.1)
+      '@workflow/sveltekit': 4.0.10(@opentelemetry/api@1.9.1)
       '@workflow/typescript-plugin': 4.0.3(typescript@5.8.3)
       '@workflow/utils': 4.1.3
       ms: 2.1.3
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
     transitivePeerDependencies:
       - '@nestjs/common'
       - '@nestjs/core'

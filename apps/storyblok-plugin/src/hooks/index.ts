@@ -1,1 +1,1 @@
-export * from './useAppBridge';
+export * from "./useAppBridge";

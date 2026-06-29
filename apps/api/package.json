@@ -1,22 +1,24 @@
 {
-	"name": "@content-guard/api",
-	"version": "0.1.0",
-	"private": true,
-	"scripts": {
-		"dev": "nitro dev",
-		"build": "nitro build",
-		"start": "node .output/server/index.mjs",
-		"preview": "node .output/server/index.mjs"
-	},
-	"dependencies": {
-		"h3": "^2.0.1-rc.4",
-		"storyblok-js-client": "^7.6.1",
-		"workflow": "^4.5.0"
-	},
-	"devDependencies": {
-		"@types/node": "22.14.0",
-		"nitro": "3.0.260610-beta",
-		"rollup": "^4.50.0",
-		"typescript": "5.8.3"
-	}
+  "name": "@content-guard/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nitro dev",
+    "build": "nitro build",
+    "start": "node .output/server/index.mjs",
+    "preview": "node .output/server/index.mjs"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "h3": "^2.0.1-rc.4",
+    "storyblok-js-client": "^7.6.1",
+    "workflow": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.14.0",
+    "nitro": "3.0.260610-beta",
+    "rollup": "^4.50.0",
+    "typescript": "5.8.3"
+  }
 }
