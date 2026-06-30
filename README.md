@@ -1,3 +1,31 @@
+# Storyblok x AWS Hackathon 2026 (NL) - The Gatekeepers (Team C)
+
+This solution has two parts:
+
+- Demo website
+- Content Guard
+
+## Demo Website
+
+To demonstrate the Content Guard solution, we set up a demo website for a fictional bank called Novabank.
+The demo website is based on the business blueprint and enhanced using AI and the Storyblok MCP.
+Customization was done in the following areas:
+
+- Branding
+- Additional components
+
+Repository: [nova-bank-hackathon](https://github.com/ronani11/nova-bank-hackathon)
+
+## Content Guard
+
+Repository: [Content Guard](https://github.com/adanbaiquality/Content-Guard)
+
+## Demo Video
+
+- [YouTube demo](https://youtu.be/bRHLSePSK6M)
+
+---
+
 # Content Guard Monorepo (Next.js + Nitro)
 
 This repository is now a **pnpm monorepo** with:
