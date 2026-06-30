@@ -26,7 +26,7 @@ Repository: [Content Guard](https://github.com/adanbaiquality/Content-Guard)
 
 ---
 
-# Content Guard Monorepo (Next.js + Nitro)
+## Content Guard Monorepo (Next.js + Nitro)
 
 This repository is now a **pnpm monorepo** with:
 
