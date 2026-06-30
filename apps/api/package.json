@@ -9,7 +9,9 @@
     "build:netlify": "NITRO_PRESET=netlify nitro build",
     "start": "node .output/server/index.mjs",
     "preview": "node .output/server/index.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "workflow:inspect": "pnpm exec workflow inspect runs",
+    "workflow:web": "pnpm exec workflow inspect runs --web"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.2",

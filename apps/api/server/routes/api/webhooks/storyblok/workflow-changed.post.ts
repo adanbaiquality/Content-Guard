@@ -17,6 +17,13 @@ import {
 } from "../../../../utils/workflow-run-output-store.ts";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
+const explicitWorkflowEngineSetting = process.env.CONTENT_GUARD_ENABLE_WORKFLOW_ENGINE;
+const shouldUseWorkflowEngine =
+  explicitWorkflowEngineSetting === "1"
+    ? true
+    : explicitWorkflowEngineSetting === "0"
+      ? false
+      : process.env.NODE_ENV === "production";
 
 const WebhookBodySchema = z
   .object({
@@ -59,10 +66,6 @@ const DEFAULT_WORKFLOW_NAME =
   runStoryblokReviewingAudits.name ||
   runStoryblokReviewingAuditsInline.name ||
   "workflow//./workflows/storyblok-reviewing-audits//runStoryblokReviewingAudits";
-
-const isDevelopment = process.env.NODE_ENV !== "production";
-const shouldUseWorkflowEngine =
-  !isDevelopment || process.env.CONTENT_GUARD_FORCE_WORKFLOW_ENGINE === "1";
 
 const toIsoString = (value: Date | undefined): string | undefined => value?.toISOString();
 

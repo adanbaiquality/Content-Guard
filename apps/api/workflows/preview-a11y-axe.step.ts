@@ -6,6 +6,7 @@ import {
   isValidPreviewUrl,
   resolvePreviewUrl,
 } from "../server/audits/index.ts";
+import { getChromiumLaunchOptions } from "./playwright.ts";
 
 const validatePreviewUrl = (previewUrl: string | undefined): AuditResult | null => {
   if (!previewUrl) {
@@ -65,7 +66,7 @@ export const runPreviewA11yAxeAudit = async (
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch(getChromiumLaunchOptions());
     const context = await browser.newContext();
     const page = await context.newPage();
 

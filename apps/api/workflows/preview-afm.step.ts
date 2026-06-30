@@ -5,6 +5,7 @@ import {
   isValidPreviewUrl,
   resolvePreviewUrl,
 } from "../server/audits/index.ts";
+import { getChromiumLaunchOptions } from "./playwright.ts";
 
 interface AFMViolation {
   type: string;
@@ -85,7 +86,7 @@ export async function runPreviewAFMAudit(
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch(getChromiumLaunchOptions());
     const context = await browser.newContext();
     const page = await context.newPage();
 
