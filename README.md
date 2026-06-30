@@ -12,10 +12,9 @@ This repository is now a **pnpm monorepo** with:
 - `apps/storyblok-plugin`: Storyblok plugin app
 - `apps/api`: Nitro API service
 
-## Production URLs
+## Runtime URLs
 
-- Frontend (Storyblok plugin): https://cute-torrone-36f67a.netlify.app/
-- API (Nitro backend): https://playful-fenglisu-c02423.netlify.app/
+- For now, use Dev Tunnels for both plugin and API endpoints.
 
 ## Environment setup
 
