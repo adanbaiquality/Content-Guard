@@ -1035,9 +1035,6 @@ export default function ContentGuardPanel() {
         <HeaderLoadingSkeleton />
       ) : (
         <header className="flex items-center gap-3 rounded-xl border border-[var(--cg-border)] bg-white/80 px-4 py-3.5">
-          <div>
-            <Image src="/guard-icon.svg" alt="Content Guard" width={28} height={28} />
-          </div>
           <div className="min-w-0 flex-1">
             {formattedLastRunAt && (
               <div

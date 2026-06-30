@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 92">
-  <title>Content Guard icon</title>
-  <path d="M40 4 L72 16 L72 52 Q72 76 40 88 Q8 76 8 52 L8 16 Z" fill="#1a3d5c"/>
-  <polyline points="24,46 36,58 56,36" fill="none" stroke="#f5a623" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="40" cy="72" r="3" fill="#2e7d6b"/>
-</svg>
